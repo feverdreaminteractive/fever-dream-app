@@ -2,6 +2,10 @@ import AVFoundation
 import Accelerate
 import Foundation
 
+protocol AudioBufferDelegate: AnyObject {
+    func didReceiveAudioBuffer(_ buffer: AVAudioPCMBuffer, at time: AVAudioTime)
+}
+
 class AudioManager: NSObject, ObservableObject {
     private var audioEngine = AVAudioEngine()
     private var inputNode: AVAudioInputNode?
@@ -12,6 +16,10 @@ class AudioManager: NSObject, ObservableObject {
     @Published var midLevel: Float = 0.0
     @Published var trebleLevel: Float = 0.0
     @Published var isListening = false
+
+    // Recording support - provide audio buffers to camera manager
+    weak var audioBufferDelegate: AudioBufferDelegate?
+
 
     // FFT analysis
     private var fftSetup: FFTSetup?
@@ -40,10 +48,16 @@ class AudioManager: NSObject, ObservableObject {
     }
 
     private func setupAudio() {
+        #if targetEnvironment(simulator)
+        print("⚠️ AudioManager: Running in iOS Simulator - microphone functionality limited")
+        #endif
+
         do {
             let audioSession = AVAudioSession.sharedInstance()
-            try audioSession.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker, .allowBluetooth])
+            // Use video recording mode to be compatible with video recording, allow mixing
+            try audioSession.setCategory(.playAndRecord, mode: .videoRecording, options: [.defaultToSpeaker, .allowBluetooth, .mixWithOthers, .allowAirPlay])
             try audioSession.setActive(true)
+            print("✅ AudioManager: Audio session configured for coexistence with recording")
 
             inputNode = audioEngine.inputNode
             let inputFormat = inputNode?.outputFormat(forBus: 0)
@@ -53,9 +67,11 @@ class AudioManager: NSObject, ObservableObject {
                 return
             }
 
-            // Install tap for audio analysis
+            // Install tap for audio analysis and recording
             inputNode.installTap(onBus: 0, bufferSize: AVAudioFrameCount(fftSize), format: inputFormat) { [weak self] (buffer, time) in
                 self?.processAudioBuffer(buffer)
+                // Also provide buffer for recording
+                self?.audioBufferDelegate?.didReceiveAudioBuffer(buffer, at: time)
             }
 
         } catch {
@@ -180,15 +196,17 @@ class AudioManager: NSObject, ObservableObject {
                     do {
                         try self?.audioEngine.start()
                         self?.isListening = true
+                        print("✅ AudioManager: Audio engine started")
                     } catch {
-                        print("Failed to start audio engine: \(error)")
+                        print("❌ AudioManager: Failed to start audio engine: \(error)")
                     }
                 } else {
-                    print("Microphone permission denied")
+                    print("❌ AudioManager: Microphone permission denied")
                 }
             }
         }
     }
+
 
     func stopListening() {
         if audioEngine.isRunning {

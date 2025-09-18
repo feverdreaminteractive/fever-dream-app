@@ -141,7 +141,7 @@ struct CameraPreviewView: UIViewRepresentable {
     }
 }
 
-class CameraPreviewUIView: UIView, AVCaptureVideoDataOutputSampleBufferDelegate {
+class CameraPreviewUIView: UIView, AVCaptureVideoDataOutputSampleBufferDelegate, AVCaptureAudioDataOutputSampleBufferDelegate {
     var cameraManager: CameraManager? {
         didSet {
             setupPreview()
@@ -170,31 +170,38 @@ class CameraPreviewUIView: UIView, AVCaptureVideoDataOutputSampleBufferDelegate 
             layer.addSublayer(previewLayer)
         }
 
-        // Set up video data output for effects processing
-        print("🔗 Setting camera delegate to self")
+        // Set up video and audio data outputs for effects processing and recording
+        print("🔗 Setting camera delegates to self")
         cameraManager.videoDataOutputDelegate = self
+        cameraManager.audioDataOutputDelegate = self
     }
 
     func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
-        print("📹 Camera frame captured!")
-        guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer),
-              let cameraManager = cameraManager else {
-            print("❌ Failed to get pixel buffer or camera manager")
+        guard let cameraManager = cameraManager else {
+            print("❌ Camera manager is nil")
             return
         }
 
-        // Process the frame with effects
-        print("🎬 About to process frame with effects processor...")
-        if let processedBuffer = cameraManager.effectsProcessor.processPixelBuffer(pixelBuffer) {
-            print("✅ Frame processed successfully")
-            // Write processed frame to recording if active
-            cameraManager.writeVideoFrame(processedBuffer)
-
-            DispatchQueue.main.async {
-                self.displayProcessedFrame(processedBuffer)
+        if output is AVCaptureVideoDataOutput {
+            guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
+                print("❌ Failed to get pixel buffer")
+                return
             }
-        } else {
-            print("❌ Effects processor returned nil")
+
+            // Process the frame with effects
+            if let processedBuffer = cameraManager.effectsProcessor.processPixelBuffer(pixelBuffer) {
+                // Write processed frame to recording if active
+                cameraManager.writeVideoFrame(processedBuffer)
+
+                DispatchQueue.main.async {
+                    self.displayProcessedFrame(processedBuffer)
+                }
+            } else {
+                print("❌ Effects processor returned nil")
+            }
+        } else if output is AVCaptureAudioDataOutput {
+            // Write audio frame to recording if active
+            cameraManager.writeAudioFrame(sampleBuffer)
         }
     }
 

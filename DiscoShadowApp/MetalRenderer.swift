@@ -173,11 +173,15 @@ class MetalRenderer: NSObject {
             bassLevel: bassLevel,
             midLevel: midLevel,
             trebleLevel: trebleLevel,
-            warpMagnitude: warpMagnitude
+            warpMagnitude: warpAmount
         )
 
+        // Debug: Log audio parameters every 30 frames
+        if Int(time * 60) % 30 == 0 {
+            print("🎨 MetalRenderer audio: Level=\(audioLevel), Bass=\(bassLevel), Mid=\(midLevel), Treble=\(trebleLevel), Warp=\(warpAmount)")
+        }
+
         let uniformsSize = MemoryLayout<DiscoUniforms>.size
-        print("✅ DiscoUniforms size: \(uniformsSize) bytes")
         computeEncoder.setBytes(&uniforms, length: uniformsSize, index: 0)
 
         let threadsPerGroup = MTLSize(width: 16, height: 16, depth: 1)
@@ -187,7 +191,6 @@ class MetalRenderer: NSObject {
             depth: 1
         )
 
-        print("✅ Dispatching compute shader with \(threadgroupsPerGrid) threadgroups")
         computeEncoder.dispatchThreadgroups(threadgroupsPerGrid, threadsPerThreadgroup: threadsPerGroup)
         computeEncoder.endEncoding()
 
@@ -198,8 +201,6 @@ class MetalRenderer: NSObject {
             print("❌ Command buffer execution failed!")
             return nil
         }
-
-        print("✅ Metal compute shader executed successfully")
         time += 0.016
 
         return outputTexture

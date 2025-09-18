@@ -19,7 +19,7 @@ class VideoEffectsProcessor: NSObject {
     private var metalRenderer: MetalRenderer?
 
     // Audio manager for audio-reactive effects
-    private var audioManager: AudioManager?
+    var audioManager: AudioManager?
 
     private let context = CIContext(options: [.workingColorSpace: CGColorSpace(name: CGColorSpace.sRGB)!,
                                               .cacheIntermediates: false])
@@ -114,8 +114,8 @@ class VideoEffectsProcessor: NSObject {
         let audioParams = audioManager?.getAudioParameters() ?? (0.0, 0.0, 0.0, 0.0)
         let totalAudio = audioParams.0 + audioParams.1 + audioParams.2 + audioParams.3
 
-        // DEBUG: Print audio levels every 30 frames
-        if frameCount % 30 == 0 {
+        // DEBUG: Print audio levels every 60 frames
+        if frameCount % 60 == 0 {
             print("🎵 Audio levels - Total: \(totalAudio), Level: \(audioParams.0), Bass: \(audioParams.1), Mid: \(audioParams.2), Treble: \(audioParams.3)")
         }
 
