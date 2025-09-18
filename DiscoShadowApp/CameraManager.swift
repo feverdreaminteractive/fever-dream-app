@@ -4,7 +4,7 @@ import Combine
 import Photos
 import CoreVideo
 
-class CameraManager: NSObject, ObservableObject {
+class CameraManager: NSObject, ObservableObject, RecordingAudioDelegate {
     @Published var isSessionRunning = false
     @Published var shouldShowAlertView = false
     @Published var alertError: AlertError = AlertError()
@@ -17,9 +17,7 @@ class CameraManager: NSObject, ObservableObject {
 
     let session = AVCaptureSession()
     private var videoDeviceInput: AVCaptureDeviceInput!
-    private var audioDeviceInput: AVCaptureDeviceInput?
     private let videoDataOutput = AVCaptureVideoDataOutput()
-    private let audioDataOutput = AVCaptureAudioDataOutput()
     private let sessionQueue = DispatchQueue(label: "session queue")
 
     var videoDataOutputDelegate: AVCaptureVideoDataOutputSampleBufferDelegate? {
@@ -29,12 +27,6 @@ class CameraManager: NSObject, ObservableObject {
         }
     }
 
-    var audioDataOutputDelegate: AVCaptureAudioDataOutputSampleBufferDelegate? {
-        didSet {
-            print("🔄 Audio data output delegate changed, updating...")
-            updateAudioDataOutputDelegate()
-        }
-    }
     let effectsProcessor = VideoEffectsProcessor()
 
     // Recording components
@@ -50,6 +42,8 @@ class CameraManager: NSObject, ObservableObject {
     override init() {
         super.init()
         self.checkPermissions()
+        // Set up AudioManager delegate for unified audio pipeline
+        effectsProcessor.audioManager?.recordingAudioDelegate = self
         sessionQueue.async {
             self.configureSession()
             self.session.startRunning()
@@ -87,16 +81,6 @@ class CameraManager: NSObject, ObservableObject {
     }
 
     private func configureSession() {
-        // Configure audio session for recording
-        do {
-            let audioSession = AVAudioSession.sharedInstance()
-            try audioSession.setCategory(.playAndRecord, mode: .videoRecording, options: [.defaultToSpeaker, .allowBluetooth])
-            try audioSession.setActive(true)
-            print("✅ Audio session configured for video recording")
-        } catch {
-            print("❌ Failed to configure audio session: \(error)")
-        }
-
         session.sessionPreset = .high
 
         guard let videoDevice = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back) else {
@@ -117,40 +101,6 @@ class CameraManager: NSObject, ObservableObject {
         }
         session.addInput(videoDeviceInput)
 
-        // Check microphone permission first
-        let microphoneStatus = AVCaptureDevice.authorizationStatus(for: .audio)
-        print("🎤 Microphone authorization status: \(microphoneStatus.rawValue)")
-
-        if microphoneStatus == .denied {
-            print("❌ Microphone access denied")
-        } else if microphoneStatus == .notDetermined {
-            print("⚠️ Microphone permission not determined")
-        }
-
-        // Check if running in simulator
-        #if targetEnvironment(simulator)
-        print("⚠️ Running in iOS Simulator - audio recording may not work properly")
-        #endif
-
-        // Configure audio input
-        if let audioDevice = AVCaptureDevice.default(for: .audio) {
-            print("🎤 Found audio device: \(audioDevice.localizedName)")
-            do {
-                audioDeviceInput = try AVCaptureDeviceInput(device: audioDevice)
-                if session.canAddInput(audioDeviceInput!) {
-                    session.addInput(audioDeviceInput!)
-                    print("✅ Audio input added to session")
-                } else {
-                    print("❌ Cannot add audio input to session")
-                }
-            } catch {
-                print("❌ Failed to create audio device input: \(error)")
-            }
-        } else {
-            print("❌ No audio device available")
-        }
-
-        // Don't set delegate here - it will be set when videoDataOutputDelegate property is assigned
         print("📊 Video data output configured (delegate will be set later)")
         videoDataOutput.videoSettings = [kCVPixelBufferPixelFormatTypeKey as String: Int(kCVPixelFormatType_32BGRA)]
 
@@ -159,21 +109,6 @@ class CameraManager: NSObject, ObservableObject {
             return
         }
         session.addOutput(videoDataOutput)
-
-        // Configure audio data output
-        guard session.canAddOutput(audioDataOutput) else {
-            print("❌ Cannot add audio data output to session")
-            return
-        }
-        session.addOutput(audioDataOutput)
-        print("✅ Audio data output added to session")
-
-        // Debug: Check if audio connections are working
-        if let audioConnection = audioDataOutput.connection(with: .audio) {
-            print("✅ Audio connection established: \(audioConnection.isEnabled)")
-        } else {
-            print("❌ No audio connection found")
-        }
 
         if let connection = videoDataOutput.connection(with: .video) {
             connection.videoOrientation = .portrait
@@ -190,15 +125,6 @@ class CameraManager: NSObject, ObservableObject {
         }
     }
 
-    private func updateAudioDataOutputDelegate() {
-        sessionQueue.async {
-            print("🔗 Actually setting audio data output delegate: \(self.audioDataOutputDelegate != nil)")
-            self.audioDataOutput.setSampleBufferDelegate(
-                self.audioDataOutputDelegate,
-                queue: DispatchQueue(label: "AudioDataOutput", qos: .userInitiated, attributes: [], autoreleaseFrequency: .workItem)
-            )
-        }
-    }
 
 
     func startSession() {
@@ -432,6 +358,11 @@ class CameraManager: NSObject, ObservableObject {
                 print("⏸️ Audio input not ready for more data")
             }
         }
+    }
+
+    // MARK: - RecordingAudioDelegate
+    func didReceiveAudioSampleBuffer(_ sampleBuffer: CMSampleBuffer) {
+        writeAudioFrame(sampleBuffer)
     }
 
     private func saveVideoToPhotos(url: URL) {

@@ -141,7 +141,7 @@ struct CameraPreviewView: UIViewRepresentable {
     }
 }
 
-class CameraPreviewUIView: UIView, AVCaptureVideoDataOutputSampleBufferDelegate, AVCaptureAudioDataOutputSampleBufferDelegate {
+class CameraPreviewUIView: UIView, AVCaptureVideoDataOutputSampleBufferDelegate {
     var cameraManager: CameraManager? {
         didSet {
             setupPreview()
@@ -170,10 +170,9 @@ class CameraPreviewUIView: UIView, AVCaptureVideoDataOutputSampleBufferDelegate,
             layer.addSublayer(previewLayer)
         }
 
-        // Set up video and audio data outputs for effects processing and recording
-        print("🔗 Setting camera delegates to self")
+        // Set up video data output for effects processing and recording
+        print("🔗 Setting camera video delegate to self")
         cameraManager.videoDataOutputDelegate = self
-        cameraManager.audioDataOutputDelegate = self
     }
 
     func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
@@ -182,6 +181,7 @@ class CameraPreviewUIView: UIView, AVCaptureVideoDataOutputSampleBufferDelegate,
             return
         }
 
+        // Only handle video output - audio is now handled by AudioManager
         if output is AVCaptureVideoDataOutput {
             guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
                 print("❌ Failed to get pixel buffer")
@@ -199,9 +199,6 @@ class CameraPreviewUIView: UIView, AVCaptureVideoDataOutputSampleBufferDelegate,
             } else {
                 print("❌ Effects processor returned nil")
             }
-        } else if output is AVCaptureAudioDataOutput {
-            // Write audio frame to recording if active
-            cameraManager.writeAudioFrame(sampleBuffer)
         }
     }
 

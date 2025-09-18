@@ -1,9 +1,14 @@
 import AVFoundation
 import Accelerate
 import Foundation
+import CoreMedia
 
 protocol AudioBufferDelegate: AnyObject {
     func didReceiveAudioBuffer(_ buffer: AVAudioPCMBuffer, at time: AVAudioTime)
+}
+
+protocol RecordingAudioDelegate: AnyObject {
+    func didReceiveAudioSampleBuffer(_ sampleBuffer: CMSampleBuffer)
 }
 
 class AudioManager: NSObject, ObservableObject {
@@ -19,6 +24,7 @@ class AudioManager: NSObject, ObservableObject {
 
     // Recording support - provide audio buffers to camera manager
     weak var audioBufferDelegate: AudioBufferDelegate?
+    weak var recordingAudioDelegate: RecordingAudioDelegate?
 
 
     // FFT analysis
@@ -72,6 +78,9 @@ class AudioManager: NSObject, ObservableObject {
                 self?.processAudioBuffer(buffer)
                 // Also provide buffer for recording
                 self?.audioBufferDelegate?.didReceiveAudioBuffer(buffer, at: time)
+
+                // Convert to CMSampleBuffer for recording
+                self?.convertAndSendToRecording(buffer: buffer, at: time)
             }
 
         } catch {
@@ -219,5 +228,110 @@ class AudioManager: NSObject, ObservableObject {
     // Get audio parameters for shader
     func getAudioParameters() -> (level: Float, bass: Float, mid: Float, treble: Float) {
         return (audioLevel, bassLevel, midLevel, trebleLevel)
+    }
+
+    // Convert AVAudioPCMBuffer to CMSampleBuffer for recording
+    private func convertAndSendToRecording(buffer: AVAudioPCMBuffer, at time: AVAudioTime) {
+        guard let recordingDelegate = recordingAudioDelegate else { return }
+
+        // Use a simpler approach - create CMSampleBuffer with proper timing
+        guard let channelData = buffer.floatChannelData?[0] else {
+            print("❌ No channel data in audio buffer")
+            return
+        }
+
+        let frameCount = Int(buffer.frameLength)
+        let sampleRate = buffer.format.sampleRate
+        let channels = Int(buffer.format.channelCount)
+
+        // Create audio format description for the buffer format
+        var audioFormatDescription: CMFormatDescription?
+        var audioStreamBasicDescription = AudioStreamBasicDescription(
+            mSampleRate: sampleRate,
+            mFormatID: kAudioFormatLinearPCM,
+            mFormatFlags: kAudioFormatFlagIsFloat | kAudioFormatFlagIsPacked | kAudioFormatFlagIsNonInterleaved,
+            mBytesPerPacket: 4,
+            mFramesPerPacket: 1,
+            mBytesPerFrame: 4,
+            mChannelsPerFrame: UInt32(channels),
+            mBitsPerChannel: 32,
+            mReserved: 0
+        )
+
+        let formatStatus = CMAudioFormatDescriptionCreate(
+            allocator: kCFAllocatorDefault,
+            asbd: &audioStreamBasicDescription,
+            layoutSize: 0,
+            layout: nil,
+            magicCookieSize: 0,
+            magicCookie: nil,
+            extensions: nil,
+            formatDescriptionOut: &audioFormatDescription
+        )
+
+        guard formatStatus == noErr, let formatDescription = audioFormatDescription else {
+            print("❌ Failed to create audio format description: \(formatStatus)")
+            return
+        }
+
+        // Create block buffer with audio data
+        var blockBuffer: CMBlockBuffer?
+        let dataSize = frameCount * MemoryLayout<Float>.size
+
+        let blockStatus = CMBlockBufferCreateWithMemoryBlock(
+            allocator: kCFAllocatorDefault,
+            memoryBlock: nil,
+            blockLength: dataSize,
+            blockAllocator: kCFAllocatorDefault,
+            customBlockSource: nil,
+            offsetToData: 0,
+            dataLength: dataSize,
+            flags: 0,
+            blockBufferOut: &blockBuffer
+        )
+
+        guard blockStatus == noErr, let block = blockBuffer else {
+            print("❌ Failed to create block buffer: \(blockStatus)")
+            return
+        }
+
+        // Copy audio data to block buffer
+        let copyStatus = CMBlockBufferReplaceDataBytes(
+            with: channelData,
+            blockBuffer: block,
+            offsetIntoDestination: 0,
+            dataLength: dataSize
+        )
+
+        guard copyStatus == noErr else {
+            print("❌ Failed to copy audio data: \(copyStatus)")
+            return
+        }
+
+        // Create sample buffer
+        var sampleBuffer: CMSampleBuffer?
+        let sampleStatus = CMSampleBufferCreate(
+            allocator: kCFAllocatorDefault,
+            dataBuffer: block,
+            dataReady: true,
+            makeDataReadyCallback: nil,
+            refcon: nil,
+            formatDescription: formatDescription,
+            sampleCount: CMItemCount(frameCount),
+            sampleTimingEntryCount: 0,
+            sampleTimingArray: nil,
+            sampleSizeEntryCount: 0,
+            sampleSizeArray: nil,
+            sampleBufferOut: &sampleBuffer
+        )
+
+        guard sampleStatus == noErr, let sample = sampleBuffer else {
+            print("❌ Failed to create sample buffer: \(sampleStatus)")
+            return
+        }
+
+        // Send to recording delegate
+        recordingDelegate.didReceiveAudioSampleBuffer(sample)
+        print("✅ Audio buffer converted and sent for recording")
     }
 }
