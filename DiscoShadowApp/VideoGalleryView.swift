@@ -2,6 +2,7 @@ import SwiftUI
 import Photos
 import PhotosUI
 import AVKit
+import Combine
 
 struct VideoGalleryView: View {
     @Environment(\.dismiss) private var dismiss
@@ -156,6 +157,56 @@ struct VideoGalleryView: View {
     }
 
     private func loadVideoURL(for asset: PHAsset) {
+        print("🎬 Loading video for asset: \(asset.localIdentifier)")
+
+        let options = PHVideoRequestOptions()
+        options.version = .original
+        options.deliveryMode = .highQualityFormat
+        options.isNetworkAccessAllowed = true
+
+        // Try to export the video to a temporary file
+        PHImageManager.default().requestExportSession(forVideo: asset, options: options, exportPreset: AVAssetExportPresetHighestQuality) { exportSession, info in
+
+            guard let exportSession = exportSession else {
+                print("❌ Failed to create export session")
+                DispatchQueue.main.async {
+                    // Fallback to direct URL approach
+                    self.loadVideoURLDirectly(for: asset)
+                }
+                return
+            }
+
+            // Create temporary file URL
+            let tempDir = FileManager.default.temporaryDirectory
+            let tempURL = tempDir.appendingPathComponent("temp_video_\(UUID().uuidString).mp4")
+
+            exportSession.outputURL = tempURL
+            exportSession.outputFileType = .mp4
+
+            exportSession.exportAsynchronously {
+                DispatchQueue.main.async {
+                    switch exportSession.status {
+                    case .completed:
+                        print("✅ Video exported successfully to: \(tempURL)")
+                        self.videoURL = tempURL
+                        self.showVideoPlayer = true
+                    case .failed:
+                        print("❌ Export failed: \(String(describing: exportSession.error))")
+                        // Fallback to direct URL approach
+                        self.loadVideoURLDirectly(for: asset)
+                    case .cancelled:
+                        print("❌ Export cancelled")
+                    default:
+                        print("❌ Export status: \(exportSession.status.rawValue)")
+                    }
+                }
+            }
+        }
+    }
+
+    private func loadVideoURLDirectly(for asset: PHAsset) {
+        print("🔄 Trying direct URL approach for asset: \(asset.localIdentifier)")
+
         let options = PHVideoRequestOptions()
         options.version = .original
         options.deliveryMode = .highQualityFormat
@@ -164,13 +215,15 @@ struct VideoGalleryView: View {
         PHImageManager.default().requestAVAsset(forVideo: asset, options: options) { avAsset, _, info in
             DispatchQueue.main.async {
                 if let urlAsset = avAsset as? AVURLAsset {
-                    print("✅ Got video URL: \(urlAsset.url)")
+                    print("✅ Got direct video URL: \(urlAsset.url)")
                     self.videoURL = urlAsset.url
                     self.showVideoPlayer = true
                 } else if let error = info?[PHImageErrorKey] as? Error {
                     print("❌ Error loading video: \(error)")
                 } else {
                     print("❌ Failed to get video URL from asset")
+                    print("📊 Asset info: \(String(describing: info))")
+                    print("📊 AVAsset type: \(String(describing: type(of: avAsset)))")
                 }
             }
         }
@@ -265,14 +318,17 @@ struct VideoPlayerView: View {
     let videoURL: URL
     let onDismiss: () -> Void
     @State private var player: AVPlayer?
+    @State private var playerReady = false
+    @State private var cancellables = Set<AnyCancellable>()
 
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
 
-            if let player = player {
+            if let player = player, playerReady {
                 VideoPlayer(player: player)
                     .onAppear {
+                        print("🎬 Starting video playback")
                         player.play()
                     }
                     .onDisappear {
@@ -280,9 +336,15 @@ struct VideoPlayerView: View {
                         player.seek(to: .zero)
                     }
             } else {
-                ProgressView()
-                    .scaleEffect(1.5)
-                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                VStack(spacing: 20) {
+                    ProgressView()
+                        .scaleEffect(1.5)
+                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
+
+                    Text("Loading video...")
+                        .foregroundColor(.white)
+                        .font(.caption)
+                }
             }
 
             VStack {
@@ -310,7 +372,42 @@ struct VideoPlayerView: View {
     }
 
     private func setupPlayer() {
+        print("🎮 Setting up player with URL: \(videoURL)")
+
+        // Check if the file exists
+        if videoURL.isFileURL {
+            let fileExists = FileManager.default.fileExists(atPath: videoURL.path)
+            print("📁 File exists at path: \(fileExists) - \(videoURL.path)")
+
+            if !fileExists {
+                print("❌ Video file does not exist!")
+                return
+            }
+        }
+
         player = AVPlayer(url: videoURL)
+
+        // Monitor player status
+        player?.currentItem?.publisher(for: \.status)
+            .sink { status in
+                DispatchQueue.main.async {
+                    switch status {
+                    case .readyToPlay:
+                        print("✅ Player ready to play")
+                        playerReady = true
+                    case .failed:
+                        print("❌ Player failed: \(String(describing: player?.currentItem?.error))")
+                        playerReady = false
+                    case .unknown:
+                        print("⏳ Player status unknown")
+                        playerReady = false
+                    @unknown default:
+                        print("❓ Unknown player status: \(status)")
+                        playerReady = false
+                    }
+                }
+            }
+            .store(in: &cancellables)
 
         // Add observer for when video ends
         NotificationCenter.default.addObserver(
@@ -320,12 +417,25 @@ struct VideoPlayerView: View {
         ) { _ in
             onDismiss()
         }
+
+        // Add observer for player failures
+        NotificationCenter.default.addObserver(
+            forName: .AVPlayerItemFailedToPlayToEndTime,
+            object: player?.currentItem,
+            queue: .main
+        ) { notification in
+            if let error = notification.userInfo?[AVPlayerItemFailedToPlayToEndTimeErrorKey] as? Error {
+                print("❌ Player failed to play to end: \(error)")
+            }
+        }
     }
 
     private func cleanupPlayer() {
         player?.pause()
         player = nil
+        playerReady = false
         NotificationCenter.default.removeObserver(self, name: .AVPlayerItemDidPlayToEndTime, object: nil)
+        NotificationCenter.default.removeObserver(self, name: .AVPlayerItemFailedToPlayToEndTime, object: nil)
     }
 }
 
