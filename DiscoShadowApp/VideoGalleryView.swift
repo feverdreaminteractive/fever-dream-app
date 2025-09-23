@@ -234,58 +234,87 @@ struct VideoThumbnailView: View {
     let asset: PHAsset
     let onTap: () -> Void
     @State private var thumbnail: UIImage?
+    @State private var showShareSheet = false
+    @State private var shareURL: URL?
 
     var body: some View {
-        Button(action: onTap) {
-            ZStack {
-                if let thumbnail = thumbnail {
-                    Image(uiImage: thumbnail)
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                        .frame(width: 110, height: 110)
-                        .clipped()
-                        .cornerRadius(8)
-                } else {
-                    Rectangle()
-                        .fill(Color.gray.opacity(0.3))
-                        .frame(width: 110, height: 110)
-                        .cornerRadius(8)
-                        .overlay(
-                            ProgressView()
-                                .scaleEffect(0.8)
-                        )
-                }
+        ZStack {
+            Button(action: onTap) {
+                ZStack {
+                    if let thumbnail = thumbnail {
+                        Image(uiImage: thumbnail)
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                            .frame(width: 110, height: 110)
+                            .clipped()
+                            .cornerRadius(8)
+                    } else {
+                        Rectangle()
+                            .fill(Color.gray.opacity(0.3))
+                            .frame(width: 110, height: 110)
+                            .cornerRadius(8)
+                            .overlay(
+                                ProgressView()
+                                    .scaleEffect(0.8)
+                            )
+                    }
 
-                VStack {
-                    Spacer()
-                    HStack {
+                    VStack {
                         Spacer()
-                        Image(systemName: "play.circle.fill")
-                            .font(.title2)
-                            .foregroundColor(.white)
-                            .shadow(radius: 3)
+                        HStack {
+                            Spacer()
+                            Image(systemName: "play.circle.fill")
+                                .font(.title2)
+                                .foregroundColor(.white)
+                                .shadow(radius: 3)
+                            Spacer()
+                        }
                         Spacer()
                     }
-                    Spacer()
-                }
 
-                VStack {
+                    VStack {
+                        Spacer()
+                        HStack {
+                            Text(formatDuration(asset.duration))
+                                .font(.caption)
+                                .foregroundColor(.white)
+                                .padding(4)
+                                .background(Color.black.opacity(0.7))
+                                .cornerRadius(4)
+                            Spacer()
+                        }
+                        .padding(6)
+                    }
+                }
+            }
+
+            // Share button overlay
+            VStack {
+                HStack {
                     Spacer()
-                    HStack {
-                        Text(formatDuration(asset.duration))
+                    Button(action: {
+                        shareVideo()
+                    }) {
+                        Image(systemName: "square.and.arrow.up")
                             .font(.caption)
                             .foregroundColor(.white)
-                            .padding(4)
+                            .padding(6)
                             .background(Color.black.opacity(0.7))
-                            .cornerRadius(4)
-                        Spacer()
+                            .cornerRadius(6)
                     }
-                    .padding(6)
+                    .buttonStyle(PlainButtonStyle())
                 }
+                .padding(6)
+                Spacer()
             }
         }
         .onAppear {
             loadThumbnail()
+        }
+        .sheet(isPresented: $showShareSheet) {
+            if let shareURL = shareURL {
+                ShareSheet(activityItems: [shareURL])
+            }
         }
     }
 
@@ -303,6 +332,49 @@ struct VideoThumbnailView: View {
         ) { image, _ in
             DispatchQueue.main.async {
                 self.thumbnail = image
+            }
+        }
+    }
+
+    private func shareVideo() {
+        print("📤 Sharing video for asset: \(asset.localIdentifier)")
+
+        let options = PHVideoRequestOptions()
+        options.version = .original
+        options.deliveryMode = .highQualityFormat
+        options.isNetworkAccessAllowed = true
+
+        // Export video to temporary file for sharing
+        PHImageManager.default().requestExportSession(forVideo: asset, options: options, exportPreset: AVAssetExportPresetHighestQuality) { exportSession, info in
+
+            guard let exportSession = exportSession else {
+                print("❌ Failed to create export session for sharing")
+                return
+            }
+
+            // Create temporary file URL for sharing
+            let tempDir = FileManager.default.temporaryDirectory
+            let shareFileName = "DiscoShadow_\(Date().timeIntervalSince1970).mp4"
+            let tempURL = tempDir.appendingPathComponent(shareFileName)
+
+            exportSession.outputURL = tempURL
+            exportSession.outputFileType = .mp4
+
+            exportSession.exportAsynchronously {
+                DispatchQueue.main.async {
+                    switch exportSession.status {
+                    case .completed:
+                        print("✅ Video exported for sharing: \(tempURL)")
+                        self.shareURL = tempURL
+                        self.showShareSheet = true
+                    case .failed:
+                        print("❌ Share export failed: \(String(describing: exportSession.error))")
+                    case .cancelled:
+                        print("❌ Share export cancelled")
+                    default:
+                        print("❌ Share export status: \(exportSession.status.rawValue)")
+                    }
+                }
             }
         }
     }
@@ -436,6 +508,23 @@ struct VideoPlayerView: View {
         playerReady = false
         NotificationCenter.default.removeObserver(self, name: .AVPlayerItemDidPlayToEndTime, object: nil)
         NotificationCenter.default.removeObserver(self, name: .AVPlayerItemFailedToPlayToEndTime, object: nil)
+    }
+}
+
+struct ShareSheet: UIViewControllerRepresentable {
+    let activityItems: [Any]
+    let applicationActivities: [UIActivity]? = nil
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        let controller = UIActivityViewController(
+            activityItems: activityItems,
+            applicationActivities: applicationActivities
+        )
+        return controller
+    }
+
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {
+        // No updates needed
     }
 }
 
