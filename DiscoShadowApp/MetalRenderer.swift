@@ -3,16 +3,16 @@ import MetalKit
 import AVFoundation
 import CoreVideo
 
+
 class MetalRenderer: NSObject {
     private let device: MTLDevice
     private let commandQueue: MTLCommandQueue
     private let library: MTLLibrary
     private var renderPipelineState: MTLRenderPipelineState?
-    private var computePipelineState: MTLComputePipelineState?
+    private var discoComputePipelineState: MTLComputePipelineState?
 
     private var textureCache: CVMetalTextureCache?
     private var outputTexture: MTLTexture?
-
     var time: Float = 0.0
     var intensity: Float = 1.0
     var colorVariation: Float = 0.5
@@ -45,19 +45,22 @@ class MetalRenderer: NSObject {
 
     private func setupPipeline() {
         print("🔧 Setting up Metal pipeline...")
-        guard let computeFunction = library.makeFunction(name: "discoShadowEffect") else {
+
+        // Set up Disco Shadow effect
+        guard let discoFunction = library.makeFunction(name: "discoShadowEffect") else {
             print("❌ Failed to create compute function 'discoShadowEffect'")
-            fatalError("Could not create compute function")
+            fatalError("Could not create disco shadow compute function")
         }
         print("✅ Created compute function 'discoShadowEffect'")
 
         do {
-            computePipelineState = try device.makeComputePipelineState(function: computeFunction)
-            print("✅ Created compute pipeline state")
+            discoComputePipelineState = try device.makeComputePipelineState(function: discoFunction)
+            print("✅ Created disco shadow compute pipeline state")
         } catch {
-            print("❌ Failed to create compute pipeline state: \(error)")
-            fatalError("Could not create compute pipeline state: \(error)")
+            print("❌ Failed to create disco shadow compute pipeline state: \(error)")
+            fatalError("Could not create disco shadow compute pipeline state: \(error)")
         }
+
 
         // Set up render pipeline for display
         guard let vertexFunction = library.makeFunction(name: "vertexShader"),
@@ -92,8 +95,9 @@ class MetalRenderer: NSObject {
             return nil
         }
 
-        guard let computePipelineState = computePipelineState else {
-            print("❌ Compute pipeline state is nil!")
+        // Use Disco Shadow effect (beta version)
+        guard let selectedPipelineState = discoComputePipelineState else {
+            print("❌ Disco Shadow compute pipeline state is nil!")
             return nil
         }
 
@@ -159,7 +163,7 @@ class MetalRenderer: NSObject {
 
         print("✅ Command buffer and encoder created")
 
-        computeEncoder.setComputePipelineState(computePipelineState)
+        computeEncoder.setComputePipelineState(selectedPipelineState)
         computeEncoder.setTexture(inputTexture, index: 0)
         computeEncoder.setTexture(outputTexture, index: 1)
 

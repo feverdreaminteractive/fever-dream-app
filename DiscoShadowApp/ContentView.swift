@@ -5,7 +5,33 @@ import MetalKit
 
 struct ContentView: View {
     @StateObject private var cameraManager = CameraManager()
-    @State private var showInfo = false
+    @State private var showMenu = false
+    @State private var showVideoGallery = false
+    @State private var animationPhase: Double = 0
+
+    // Animated rainbow gradient for UI elements
+    private var rainbowGradient: LinearGradient {
+        LinearGradient(
+            colors: [
+                .red,
+                .orange,
+                .yellow,
+                .green,
+                .blue,
+                .indigo,
+                .purple,
+                .red // Loop back to red for smooth animation
+            ],
+            startPoint: UnitPoint(
+                x: 0.5 + 0.5 * cos(animationPhase),
+                y: 0.5 + 0.5 * sin(animationPhase)
+            ),
+            endPoint: UnitPoint(
+                x: 0.5 + 0.5 * cos(animationPhase + .pi),
+                y: 0.5 + 0.5 * sin(animationPhase + .pi)
+            )
+        )
+    }
 
     var body: some View {
         ZStack {
@@ -32,53 +58,29 @@ struct ContentView: View {
 
                 Spacer()
 
-                if showInfo {
-                    VStack(spacing: 12) {
-                        Text("🌈 MAXIMUM PSYCHEDELIC EXPERIENCE 🌈")
-                            .font(.system(size: 16, weight: .bold, design: .rounded))
-                            .foregroundStyle(
-                                LinearGradient(
-                                    colors: [.pink, .purple, .cyan, .green, .yellow, .orange],
-                                    startPoint: .leading,
-                                    endPoint: .trailing
-                                )
-                            )
-                            .multilineTextAlignment(.center)
-
-                        Text("✨ Kaleidoscope Morphing\n🎆 Digital Glitch Artifacts\n🌊 Space-Time Warping\n💫 Chromatic Aberration\n🔥 Pulsating Rainbow Colors\n🌀 Fractal Noise Layers")
-                            .font(.system(size: 14, weight: .medium, design: .rounded))
-                            .foregroundColor(.black.opacity(0.95))
-                            .multilineTextAlignment(.leading)
-                    }
-                    .padding()
-                    .background(Color.black.opacity(0.7))
-                    .cornerRadius(15)
-                    .padding(.horizontal)
-                }
-
-                // Warp Magnitude Slider
-                VStack(spacing: 8) {
-                    HStack {
-                        Text("🌊 WARP INTENSITY")
-                            .font(.system(size: 12, weight: .bold, design: .rounded))
+                HStack(spacing: 30) {
+                    // Camera switch button
+                    Button(action: {
+                        cameraManager.switchCamera()
+                    }) {
+                        Image(systemName: "camera.rotate")
+                            .font(.title2)
                             .foregroundColor(.white)
-                        Spacer()
-                        Text("\(Int(cameraManager.warpMagnitude * 100))%")
-                            .font(.system(size: 12, weight: .bold, design: .rounded))
-                            .foregroundColor(.cyan)
+                            .padding()
+                            .background(
+                                ZStack {
+                                    Color.black.opacity(0.3)
+                                    rainbowGradient.opacity(0.8)
+                                }
+                            )
+                            .clipShape(Circle())
+                            .shadow(color: .purple.opacity(0.6), radius: 8, x: 0, y: 0)
+                            .shadow(color: .cyan.opacity(0.4), radius: 15, x: 0, y: 0)
                     }
+                    .disabled(cameraManager.isRecording)
+                    .opacity(cameraManager.isRecording ? 0.5 : 1.0)
 
-                    Slider(value: $cameraManager.warpMagnitude, in: 0.0...2.0, step: 0.1)
-                        .accentColor(.cyan)
-                        .background(Color.black.opacity(0.3))
-                        .cornerRadius(8)
-                }
-                .padding()
-                .background(Color.black.opacity(0.6))
-                .cornerRadius(12)
-                .padding(.horizontal)
-
-                HStack(spacing: 20) {
+                    // Record button
                     Button(action: {
                         if cameraManager.isRecording {
                             cameraManager.stopRecording()
@@ -88,30 +90,109 @@ struct ContentView: View {
                     }) {
                         Image(systemName: cameraManager.isRecording ? "stop.circle.fill" : "record.circle")
                             .font(.title)
-                            .foregroundColor(cameraManager.isRecording ? .red : .white)
+                            .foregroundColor(.white)
                             .padding()
-                            .background(Color.black.opacity(0.6))
+                            .background(
+                                ZStack {
+                                    Color.black.opacity(0.3)
+                                    if cameraManager.isRecording {
+                                        Color.red.opacity(0.9)
+                                    } else {
+                                        rainbowGradient.opacity(0.8)
+                                    }
+                                }
+                            )
                             .clipShape(Circle())
+                            .shadow(color: cameraManager.isRecording ? .red.opacity(0.8) : .purple.opacity(0.6), radius: 8, x: 0, y: 0)
+                            .shadow(color: cameraManager.isRecording ? .red.opacity(0.5) : .cyan.opacity(0.4), radius: 15, x: 0, y: 0)
                     }
 
+                    // Hamburger menu button
                     Button(action: {
                         withAnimation(.easeInOut(duration: 0.3)) {
-                            showInfo.toggle()
+                            showMenu.toggle()
                         }
                     }) {
-                        Image(systemName: showInfo ? "info.circle.fill" : "info.circle")
+                        Image(systemName: "line.3.horizontal")
                             .font(.title2)
                             .foregroundColor(.white)
                             .padding()
-                            .background(Color.black.opacity(0.6))
+                            .background(
+                                ZStack {
+                                    Color.black.opacity(0.3)
+                                    rainbowGradient.opacity(0.8)
+                                }
+                            )
                             .clipShape(Circle())
+                            .shadow(color: .purple.opacity(0.6), radius: 8, x: 0, y: 0)
+                            .shadow(color: .cyan.opacity(0.4), radius: 15, x: 0, y: 0)
                     }
                 }
                 .padding(.bottom, 50)
             }
+
+            // Hamburger Menu Overlay
+            if showMenu {
+                VStack {
+                    Spacer()
+
+                    HStack {
+                        Spacer()
+
+                        VStack(spacing: 0) {
+                            // Menu Items
+                            MenuButton(icon: "square.and.arrow.down", title: "Download Videos", action: {
+                                showVideoGallery = true
+                                showMenu = false
+                            })
+
+                            MenuButton(icon: "gearshape", title: "Settings", action: {
+                                // TODO: Open Settings
+                                showMenu = false
+                            })
+
+                            MenuButton(icon: "questionmark.circle", title: "Help & Tips", action: {
+                                // TODO: Open Help
+                                showMenu = false
+                            })
+
+                            MenuButton(icon: "star", title: "Rate App", action: {
+                                // TODO: Open App Store Rating
+                                showMenu = false
+                            })
+
+                            MenuButton(icon: "xmark", title: "Close", action: {
+                                withAnimation(.easeInOut(duration: 0.3)) {
+                                    showMenu = false
+                                }
+                            })
+                        }
+                        .background(
+                            ZStack {
+                                Color.black.opacity(0.8)
+                                rainbowGradient.opacity(0.3)
+                            }
+                        )
+                        .cornerRadius(20)
+                        .padding(.trailing, 20)
+                        .padding(.bottom, 120)
+                    }
+                }
+                .background(Color.black.opacity(0.3))
+                .ignoresSafeArea()
+                .onTapGesture {
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        showMenu = false
+                    }
+                }
+            }
         }
         .onAppear {
             cameraManager.startSession()
+            // Start rainbow animation
+            withAnimation(.linear(duration: 3).repeatForever(autoreverses: false)) {
+                animationPhase = .pi * 2
+            }
         }
         .onDisappear {
             cameraManager.stopSession()
@@ -123,6 +204,9 @@ struct ContentView: View {
                 primaryButton: .default(Text(cameraManager.alertError.primaryButtonTitle), action: cameraManager.alertError.primaryAction),
                 secondaryButton: .cancel(Text(cameraManager.alertError.secondaryButtonTitle ?? "Cancel"), action: cameraManager.alertError.secondaryAction)
             )
+        }
+        .sheet(isPresented: $showVideoGallery) {
+            VideoGalleryView()
         }
     }
 }
@@ -216,6 +300,48 @@ class CameraPreviewUIView: UIView, AVCaptureVideoDataOutputSampleBufferDelegate 
                 layer.addSublayer(effectLayer)
             }
         }
+    }
+}
+
+struct MenuButton: View {
+    let icon: String
+    let title: String
+    let action: () -> Void
+
+    // Rainbow gradient for menu items
+    private let rainbowGradient = LinearGradient(
+        colors: [
+            .red,
+            .orange,
+            .yellow,
+            .green,
+            .blue,
+            .indigo,
+            .purple
+        ],
+        startPoint: .leading,
+        endPoint: .trailing
+    )
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 15) {
+                Image(systemName: icon)
+                    .font(.system(size: 18, weight: .medium))
+                    .foregroundStyle(rainbowGradient)
+                    .frame(width: 25, height: 25)
+
+                Text(title)
+                    .font(.system(size: 16, weight: .medium, design: .rounded))
+                    .foregroundStyle(rainbowGradient)
+
+                Spacer()
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 15)
+            .background(Color.clear)
+        }
+        .buttonStyle(PlainButtonStyle())
     }
 }
 

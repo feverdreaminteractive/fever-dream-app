@@ -36,6 +36,7 @@ class VideoEffectsProcessor: NSObject {
     // Adjustable warp magnitude (0.0 to 1.0)
     var warpMagnitude: Float = 1.0
 
+
     // Enhanced psychedelic parameters with automatic variation - never stops
     var colorVariation: Float {
         let currentTime = Float(CACurrentMediaTime())

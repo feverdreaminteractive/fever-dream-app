@@ -14,6 +14,7 @@ class CameraManager: NSObject, ObservableObject, RecordingAudioDelegate {
             effectsProcessor.warpMagnitude = warpMagnitude
         }
     }
+    @Published var isUsingFrontCamera = false
 
     let session = AVCaptureSession()
     private var videoDeviceInput: AVCaptureDeviceInput!
@@ -28,6 +29,7 @@ class CameraManager: NSObject, ObservableObject, RecordingAudioDelegate {
     }
 
     let effectsProcessor = VideoEffectsProcessor()
+
 
     // Recording components
     private var assetWriter: AVAssetWriter?
@@ -83,8 +85,9 @@ class CameraManager: NSObject, ObservableObject, RecordingAudioDelegate {
     private func configureSession() {
         session.sessionPreset = .high
 
-        guard let videoDevice = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back) else {
-            print("Failed to get the camera device")
+        let cameraPosition: AVCaptureDevice.Position = isUsingFrontCamera ? .front : .back
+        guard let videoDevice = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: cameraPosition) else {
+            print("Failed to get the camera device for position: \(cameraPosition)")
             return
         }
 
@@ -112,6 +115,10 @@ class CameraManager: NSObject, ObservableObject, RecordingAudioDelegate {
 
         if let connection = videoDataOutput.connection(with: .video) {
             connection.videoOrientation = .portrait
+            // Mirror front camera for natural selfie experience
+            if isUsingFrontCamera {
+                connection.isVideoMirrored = true
+            }
         }
     }
 
@@ -145,6 +152,53 @@ class CameraManager: NSObject, ObservableObject, RecordingAudioDelegate {
                 DispatchQueue.main.async {
                     self.isSessionRunning = self.session.isRunning
                 }
+            }
+        }
+    }
+
+    func switchCamera() {
+        sessionQueue.async {
+            guard !self.isRecording else {
+                print("Cannot switch camera while recording")
+                return
+            }
+
+            // Remove current input
+            if let currentInput = self.videoDeviceInput {
+                self.session.removeInput(currentInput)
+            }
+
+            // Toggle camera position
+            DispatchQueue.main.async {
+                self.isUsingFrontCamera.toggle()
+            }
+
+            // Get new camera
+            let newPosition: AVCaptureDevice.Position = self.isUsingFrontCamera ? .front : .back
+            guard let newVideoDevice = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: newPosition) else {
+                print("Failed to get camera for position: \(newPosition)")
+                return
+            }
+
+            do {
+                let newVideoInput = try AVCaptureDeviceInput(device: newVideoDevice)
+
+                if self.session.canAddInput(newVideoInput) {
+                    self.session.addInput(newVideoInput)
+                    self.videoDeviceInput = newVideoInput
+
+                    // Update video connection mirroring for front camera
+                    if let connection = self.videoDataOutput.connection(with: .video) {
+                        connection.videoOrientation = .portrait
+                        connection.isVideoMirrored = (newPosition == .front)
+                    }
+
+                    print("✅ Switched to \(newPosition == .front ? "front" : "back") camera")
+                } else {
+                    print("❌ Cannot add new camera input")
+                }
+            } catch {
+                print("❌ Error creating camera input: \(error)")
             }
         }
     }

@@ -72,12 +72,25 @@ kernel void discoShadowEffect(texture2d<float, access::read> inputTexture [[text
     // Audio-reactive chromatic aberration effect - only when sound is present
     float3 chromaticColor = baseColor.rgb;
 
-    // Only apply chromatic aberration if there's audio input
+    // Only apply chromatic aberration if there's audio input - Enhanced with more movement
     if (uniforms.audioLevel > 0.01) {
-        float aberrationAmount = 0.02 * (uniforms.audioLevel * 3.0 + uniforms.bassLevel * 2.0);
-        float2 redOffset = float2(aberrationAmount * cos(uniforms.time), aberrationAmount * sin(uniforms.time * 0.7));
-        float2 greenOffset = float2(0.0, 0.0);
-        float2 blueOffset = float2(-aberrationAmount * sin(uniforms.time * 0.8), -aberrationAmount * cos(uniforms.time * 1.2));
+        float aberrationAmount = 0.025 * (uniforms.audioLevel * 4.0 + uniforms.bassLevel * 3.0);
+
+        // Add more dynamic movement patterns based on audio frequencies
+        float bassMovement = sin(uniforms.time * 5.0) * uniforms.bassLevel * 0.8;
+        float midMovement = cos(uniforms.time * 12.0) * uniforms.midLevel * 0.6;
+        float trebleMovement = sin(uniforms.time * 20.0) * uniforms.trebleLevel * 0.4;
+
+        // Create flowing circular motion for red channel (bass)
+        float redAngle = uniforms.time * 3.0 + bassMovement * 2.0;
+        float2 redOffset = aberrationAmount * float2(cos(redAngle), sin(redAngle)) * (1.0 + bassMovement);
+
+        // Green channel gets subtle mid-frequency movement
+        float2 greenOffset = float2(midMovement * 0.01, midMovement * 0.008);
+
+        // Blue channel gets fast treble-driven movement
+        float blueAngle = -uniforms.time * 4.0 + trebleMovement * 3.0;
+        float2 blueOffset = aberrationAmount * float2(sin(blueAngle), cos(blueAngle)) * (1.0 + trebleMovement);
 
         uint2 redCoord = uint2(clamp(warpedUV + redOffset, 0.0, 1.0) * float2(uniforms.resolutionX, uniforms.resolutionY));
         uint2 greenCoord = uint2(clamp(warpedUV + greenOffset, 0.0, 1.0) * float2(uniforms.resolutionX, uniforms.resolutionY));
@@ -101,37 +114,50 @@ kernel void discoShadowEffect(texture2d<float, access::read> inputTexture [[text
     }
 
 
-    // Audio-reactive color shaking - different frequencies affect different color channels
-    float3 colorShake = chromaticColor;
+    // Add beat-reactive color intensity boosts to the existing chromatic colors
+    float3 enhancedChromaticColor = chromaticColor;
 
     if (uniforms.audioLevel > 0.01) {
-        // Bass affects red channel - slow, strong shaking
-        float bassShake = sin(uniforms.time * 8.0 + uv.x * 20.0) * uniforms.bassLevel * 0.15;
-        colorShake.r = clamp(colorShake.r + bassShake, 0.0, 1.0);
+        // Convert to polar coordinates for additional effects
+        float angle = atan2(centeredUV.y, centeredUV.x);
+        float radius = length(centeredUV);
 
-        // Mid frequencies affect green channel - medium speed shaking
-        float midShake = sin(uniforms.time * 15.0 + uv.y * 30.0) * uniforms.midLevel * 0.12;
-        colorShake.g = clamp(colorShake.g + midShake, 0.0, 1.0);
+        // Add beat-reactive color intensity shifts to the aberration
+        float beatPulse = sin(uniforms.time * 10.0) * uniforms.audioLevel * 0.2;
+        float bassBoost = sin(uniforms.time * 6.0 + radius * 8.0) * uniforms.bassLevel * 0.3;
+        float midBoost = sin(uniforms.time * 15.0 + angle * 6.0) * uniforms.midLevel * 0.25;
+        float trebleBoost = sin(uniforms.time * 25.0 + (uv.x - uv.y) * 20.0) * uniforms.trebleLevel * 0.2;
 
-        // Treble affects blue channel - fast, subtle shaking
-        float trebleShake = sin(uniforms.time * 25.0 + (uv.x + uv.y) * 40.0) * uniforms.trebleLevel * 0.1;
-        colorShake.b = clamp(colorShake.b + trebleShake, 0.0, 1.0);
+        // Apply frequency-specific boosts to each color channel
+        enhancedChromaticColor.r += bassBoost + beatPulse;
+        enhancedChromaticColor.g += midBoost + beatPulse * 0.8;
+        enhancedChromaticColor.b += trebleBoost + beatPulse * 0.6;
 
-        // Overall audio level adds slight color intensity variation
-        float overallShake = sin(uniforms.time * 12.0) * uniforms.audioLevel * 0.08;
-        colorShake = clamp(colorShake + overallShake, 0.0, 1.0);
+        enhancedChromaticColor = clamp(enhancedChromaticColor, 0.0, 1.0);
     }
 
-    // Mix effects - focus on chromatic aberration and color shaking as main effects
-    float3 finalColor = colorShake;
+    // Mix effects - focus on enhanced chromatic aberration as main effect
+    float3 finalColor = enhancedChromaticColor;
 
-    // Audio-reactive brightness
-    finalColor *= (1.0 + uniforms.bassLevel * 0.5);
+    // Enhanced beat-reactive brightness and saturation
+    float beatIntensity = uniforms.audioLevel * 1.2 + uniforms.bassLevel * 0.8;
+    finalColor *= (1.0 + beatIntensity);
 
-    // Vignette effect
+    // Beat-driven saturation boost
+    float saturation = 1.0 + (uniforms.midLevel + uniforms.trebleLevel) * 0.6;
+    float3 gray = float3(dot(finalColor, float3(0.299, 0.587, 0.114)));
+    finalColor = mix(gray, finalColor, saturation);
+
+    // Dynamic vignette that pulses with the beat
     float distance = length(centeredUV);
-    float vignette = 1.0 - distance * 0.3;
+    float vignettePulse = 0.2 + sin(uniforms.time * 8.0) * uniforms.audioLevel * 0.1;
+    float vignette = 1.0 - distance * vignettePulse;
     finalColor *= vignette;
 
     outputTexture.write(float4(finalColor, baseColor.a), gid);
 }
+
+
+
+
+
