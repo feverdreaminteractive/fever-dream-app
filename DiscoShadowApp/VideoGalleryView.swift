@@ -159,13 +159,19 @@ struct VideoGalleryView: View {
         let options = PHVideoRequestOptions()
         options.version = .original
         options.deliveryMode = .highQualityFormat
+        options.isNetworkAccessAllowed = true
 
-        PHImageManager.default().requestAVAsset(forVideo: asset, options: options) { avAsset, _, _ in
-            guard let urlAsset = avAsset as? AVURLAsset else { return }
-
+        PHImageManager.default().requestAVAsset(forVideo: asset, options: options) { avAsset, _, info in
             DispatchQueue.main.async {
-                self.videoURL = urlAsset.url
-                self.showVideoPlayer = true
+                if let urlAsset = avAsset as? AVURLAsset {
+                    print("✅ Got video URL: \(urlAsset.url)")
+                    self.videoURL = urlAsset.url
+                    self.showVideoPlayer = true
+                } else if let error = info?[PHImageErrorKey] as? Error {
+                    print("❌ Error loading video: \(error)")
+                } else {
+                    print("❌ Failed to get video URL from asset")
+                }
             }
         }
     }
@@ -258,26 +264,32 @@ struct VideoThumbnailView: View {
 struct VideoPlayerView: View {
     let videoURL: URL
     let onDismiss: () -> Void
+    @State private var player: AVPlayer?
 
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
 
-            VideoPlayer(player: AVPlayer(url: videoURL))
-                .onAppear {
-                    NotificationCenter.default.addObserver(
-                        forName: .AVPlayerItemDidPlayToEndTime,
-                        object: nil,
-                        queue: .main
-                    ) { _ in
-                        onDismiss()
+            if let player = player {
+                VideoPlayer(player: player)
+                    .onAppear {
+                        player.play()
                     }
-                }
+                    .onDisappear {
+                        player.pause()
+                        player.seek(to: .zero)
+                    }
+            } else {
+                ProgressView()
+                    .scaleEffect(1.5)
+                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
+            }
 
             VStack {
                 HStack {
                     Spacer()
                     Button("Done") {
+                        player?.pause()
                         onDismiss()
                     }
                     .foregroundColor(.white)
@@ -289,6 +301,31 @@ struct VideoPlayerView: View {
                 Spacer()
             }
         }
+        .onAppear {
+            setupPlayer()
+        }
+        .onDisappear {
+            cleanupPlayer()
+        }
+    }
+
+    private func setupPlayer() {
+        player = AVPlayer(url: videoURL)
+
+        // Add observer for when video ends
+        NotificationCenter.default.addObserver(
+            forName: .AVPlayerItemDidPlayToEndTime,
+            object: player?.currentItem,
+            queue: .main
+        ) { _ in
+            onDismiss()
+        }
+    }
+
+    private func cleanupPlayer() {
+        player?.pause()
+        player = nil
+        NotificationCenter.default.removeObserver(self, name: .AVPlayerItemDidPlayToEndTime, object: nil)
     }
 }
 
