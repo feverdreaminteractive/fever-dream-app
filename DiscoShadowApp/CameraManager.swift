@@ -15,6 +15,7 @@ class CameraManager: NSObject, ObservableObject, RecordingAudioDelegate {
         }
     }
     @Published var isUsingFrontCamera = false
+    @Published var zoomFactor: CGFloat = 1.0
 
     let session = AVCaptureSession()
     private var videoDeviceInput: AVCaptureDeviceInput!
@@ -456,6 +457,51 @@ class CameraManager: NSObject, ObservableObject, RecordingAudioDelegate {
                 print("⚠️ Photos access not determined")
             @unknown default:
                 print("⚠️ Unknown Photos authorization status")
+            }
+        }
+    }
+
+    func setZoom(_ factor: CGFloat) {
+        sessionQueue.async {
+            guard let device = self.videoDeviceInput?.device else { return }
+
+            do {
+                try device.lockForConfiguration()
+
+                let clampedFactor = max(1.0, min(factor, device.activeFormat.videoMaxZoomFactor))
+                device.videoZoomFactor = clampedFactor
+
+                DispatchQueue.main.async {
+                    self.zoomFactor = clampedFactor
+                }
+
+                device.unlockForConfiguration()
+            } catch {
+                print("Error setting zoom: \(error)")
+            }
+        }
+    }
+
+    func setFocusAndExposure(at point: CGPoint) {
+        sessionQueue.async {
+            guard let device = self.videoDeviceInput?.device else { return }
+
+            do {
+                try device.lockForConfiguration()
+
+                if device.isFocusPointOfInterestSupported && device.isFocusModeSupported(.autoFocus) {
+                    device.focusPointOfInterest = point
+                    device.focusMode = .autoFocus
+                }
+
+                if device.isExposurePointOfInterestSupported && device.isExposureModeSupported(.autoExpose) {
+                    device.exposurePointOfInterest = point
+                    device.exposureMode = .autoExpose
+                }
+
+                device.unlockForConfiguration()
+            } catch {
+                print("Error setting focus and exposure: \(error)")
             }
         }
     }

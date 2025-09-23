@@ -2,136 +2,134 @@ import SwiftUI
 import AVFoundation
 import Metal
 import MetalKit
+import UIKit
 
 struct ContentView: View {
     @StateObject private var cameraManager = CameraManager()
     @State private var showMenu = false
     @State private var showVideoGallery = false
-    @State private var animationPhase: Double = 0
+    @State private var currentZoomFactor: CGFloat = 1.0
 
-    // Animated rainbow gradient for UI elements
-    private var rainbowGradient: LinearGradient {
-        LinearGradient(
-            colors: [
-                .red,
-                .orange,
-                .yellow,
-                .green,
-                .blue,
-                .indigo,
-                .purple,
-                .red // Loop back to red for smooth animation
-            ],
-            startPoint: UnitPoint(
-                x: 0.5 + 0.5 * cos(animationPhase),
-                y: 0.5 + 0.5 * sin(animationPhase)
-            ),
-            endPoint: UnitPoint(
-                x: 0.5 + 0.5 * cos(animationPhase + .pi),
-                y: 0.5 + 0.5 * sin(animationPhase + .pi)
+    // Clean capture button
+    var captureButton: some View {
+        Button(action: {
+            if cameraManager.isRecording {
+                cameraManager.stopRecording()
+            } else {
+                cameraManager.startRecording()
+            }
+        }) {
+            Circle()
+                .foregroundColor(cameraManager.isRecording ? .red : .white)
+                .frame(width: 80, height: 80, alignment: .center)
+                .overlay(
+                    Circle()
+                        .stroke(Color.black.opacity(0.8), lineWidth: 2)
+                        .frame(width: 65, height: 65, alignment: .center)
+                )
+        }
+    }
+
+    // Video thumbnail preview (placeholder for now)
+    var videoThumbnail: some View {
+        RoundedRectangle(cornerRadius: 10)
+            .frame(width: 60, height: 60, alignment: .center)
+            .foregroundColor(.gray.opacity(0.3))
+            .overlay(
+                Image(systemName: "video.fill")
+                    .foregroundColor(.white)
+                    .font(.title3)
             )
-        )
+    }
+
+    // Camera flip button
+    var flipCameraButton: some View {
+        Button(action: {
+            cameraManager.switchCamera()
+        }) {
+            Circle()
+                .foregroundColor(Color.gray.opacity(0.2))
+                .frame(width: 45, height: 45, alignment: .center)
+                .overlay(
+                    Image(systemName: "camera.rotate.fill")
+                        .foregroundColor(.white)
+                )
+        }
+        .disabled(cameraManager.isRecording)
+        .opacity(cameraManager.isRecording ? 0.5 : 1.0)
     }
 
     var body: some View {
         ZStack {
-            CameraPreviewView(cameraManager: cameraManager)
-                .ignoresSafeArea()
+            GeometryReader { reader in
+                ZStack {
+                    Color.black.edgesIgnoringSafeArea(.all)
 
-            VStack {
-                HStack {
-                    VStack(alignment: .leading) {
-                        PsychedelicText("FΣVΣЯ DЯΣΛM", size: 24)
+                    VStack {
+                        // Simple top bar with app title and menu
+                        HStack {
+                            Text("FΣVΣЯ DЯΣΛM")
+                                .font(.system(size: 20, weight: .bold, design: .rounded))
+                                .foregroundColor(.white)
 
-                        PsychedelicText("", size: 12)
-                            .foregroundStyle(
-                                AngularGradient(
-                                    colors: [.white],
-                                    center: .center
-                                )
-                            )
-                    }
-                    Spacer()
-                }
-                .padding(.top, 20)
-                .padding(.horizontal, 20)
+                            Spacer()
 
-                Spacer()
-
-                HStack(spacing: 30) {
-                    // Camera switch button
-                    Button(action: {
-                        cameraManager.switchCamera()
-                    }) {
-                        Image(systemName: "camera.rotate")
-                            .font(.title2)
-                            .foregroundColor(.white)
-                            .padding()
-                            .background(
-                                ZStack {
-                                    Color.black.opacity(0.3)
-                                    rainbowGradient.opacity(0.8)
+                            Button(action: {
+                                withAnimation(.easeInOut(duration: 0.3)) {
+                                    showMenu.toggle()
                                 }
-                            )
-                            .clipShape(Circle())
-                            .shadow(color: .purple.opacity(0.6), radius: 8, x: 0, y: 0)
-                            .shadow(color: .cyan.opacity(0.4), radius: 15, x: 0, y: 0)
-                    }
-                    .disabled(cameraManager.isRecording)
-                    .opacity(cameraManager.isRecording ? 0.5 : 1.0)
-
-                    // Record button
-                    Button(action: {
-                        if cameraManager.isRecording {
-                            cameraManager.stopRecording()
-                        } else {
-                            cameraManager.startRecording()
+                            }) {
+                                Image(systemName: "line.3.horizontal")
+                                    .font(.title2)
+                                    .foregroundColor(.white)
+                            }
                         }
-                    }) {
-                        Image(systemName: cameraManager.isRecording ? "stop.circle.fill" : "record.circle")
-                            .font(.title)
-                            .foregroundColor(.white)
-                            .padding()
-                            .background(
-                                ZStack {
-                                    Color.black.opacity(0.3)
-                                    if cameraManager.isRecording {
-                                        Color.red.opacity(0.9)
-                                    } else {
-                                        rainbowGradient.opacity(0.8)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 10)
+
+                        // Camera preview with zoom gesture
+                        CameraPreviewView(cameraManager: cameraManager)
+                            .gesture(
+                                DragGesture().onChanged({ (val) in
+                                    // Only accept vertical drag for zoom
+                                    if abs(val.translation.height) > abs(val.translation.width) {
+                                        // Get the percentage of vertical screen space covered by drag
+                                        let percentage: CGFloat = -(val.translation.height / reader.size.height)
+                                        // Calculate new zoom factor
+                                        let calc = currentZoomFactor + percentage
+                                        // Limit zoom factor to a maximum of 5x and a minimum of 1x
+                                        let zoomFactor: CGFloat = min(max(calc, 1), 5)
+                                        // Store the newly calculated zoom factor
+                                        currentZoomFactor = zoomFactor
+                                        // Apply zoom to camera
+                                        cameraManager.setZoom(zoomFactor)
                                     }
-                                }
+                                })
                             )
-                            .clipShape(Circle())
-                            .shadow(color: cameraManager.isRecording ? .red.opacity(0.8) : .purple.opacity(0.6), radius: 8, x: 0, y: 0)
-                            .shadow(color: cameraManager.isRecording ? .red.opacity(0.5) : .cyan.opacity(0.4), radius: 15, x: 0, y: 0)
-                    }
 
-                    // Hamburger menu button
-                    Button(action: {
-                        withAnimation(.easeInOut(duration: 0.3)) {
-                            showMenu.toggle()
+                        // Professional camera controls at bottom
+                        HStack {
+                            Button(action: {
+                                showVideoGallery = true
+                            }) {
+                                videoThumbnail
+                            }
+
+                            Spacer()
+
+                            captureButton
+
+                            Spacer()
+
+                            flipCameraButton
                         }
-                    }) {
-                        Image(systemName: "line.3.horizontal")
-                            .font(.title2)
-                            .foregroundColor(.white)
-                            .padding()
-                            .background(
-                                ZStack {
-                                    Color.black.opacity(0.3)
-                                    rainbowGradient.opacity(0.8)
-                                }
-                            )
-                            .clipShape(Circle())
-                            .shadow(color: .purple.opacity(0.6), radius: 8, x: 0, y: 0)
-                            .shadow(color: .cyan.opacity(0.4), radius: 15, x: 0, y: 0)
+                        .padding(.horizontal, 20)
+                        .padding(.bottom, 30)
                     }
                 }
-                .padding(.bottom, 50)
             }
 
-            // Hamburger Menu Overlay
+            // Simple Menu Overlay
             if showMenu {
                 VStack {
                     Spacer()
@@ -167,12 +165,7 @@ struct ContentView: View {
                                 }
                             })
                         }
-                        .background(
-                            ZStack {
-                                Color.black.opacity(0.8)
-                                rainbowGradient.opacity(0.3)
-                            }
-                        )
+                        .background(Color.black.opacity(0.9))
                         .cornerRadius(20)
                         .padding(.trailing, 20)
                         .padding(.bottom, 120)
@@ -189,10 +182,6 @@ struct ContentView: View {
         }
         .onAppear {
             cameraManager.startSession()
-            // Start rainbow animation
-            withAnimation(.linear(duration: 3).repeatForever(autoreverses: false)) {
-                animationPhase = .pi * 2
-            }
         }
         .onDisappear {
             cameraManager.stopSession()
@@ -236,10 +225,55 @@ class CameraPreviewUIView: UIView, AVCaptureVideoDataOutputSampleBufferDelegate 
     private var effectLayer: CALayer?
     private let ciContext = CIContext() // Reuse context for performance
 
+    // Focus ring like Camera-SwiftUI
+    let focusView: UIView = {
+        let focusView = UIView(frame: CGRect(x: 0, y: 0, width: 50, height: 50))
+        focusView.layer.borderColor = UIColor.white.cgColor
+        focusView.layer.borderWidth = 1.5
+        focusView.layer.cornerRadius = 25
+        focusView.layer.opacity = 0
+        focusView.backgroundColor = .clear
+        return focusView
+    }()
+
+    @objc func focusAndExposeTap(gestureRecognizer: UITapGestureRecognizer) {
+        guard let previewLayer = previewLayer else { return }
+
+        let layerPoint = gestureRecognizer.location(in: gestureRecognizer.view)
+        let devicePoint = previewLayer.captureDevicePointConverted(fromLayerPoint: layerPoint)
+
+        let focusCircleDiam: CGFloat = 50
+        let shiftedLayerPoint = CGPoint(x: layerPoint.x - (focusCircleDiam / 2),
+            y: layerPoint.y - (focusCircleDiam / 2))
+
+        focusView.layer.frame = CGRect(origin: shiftedLayerPoint, size: CGSize(width: focusCircleDiam, height: focusCircleDiam))
+
+        // Call focus and exposure on CameraManager
+        if let cameraManager = self.cameraManager {
+            cameraManager.setFocusAndExposure(at: devicePoint)
+        }
+
+        UIView.animate(withDuration: 0.3, animations: {
+            self.focusView.layer.opacity = 1
+        }) { (completed) in
+            if completed {
+                UIView.animate(withDuration: 0.3) {
+                    self.focusView.layer.opacity = 0
+                }
+            }
+        }
+    }
+
     override func layoutSubviews() {
         super.layoutSubviews()
         previewLayer?.frame = bounds
         effectLayer?.frame = bounds
+
+        // Set up focus view and tap gesture
+        self.layer.addSublayer(focusView.layer)
+
+        let gRecognizer = UITapGestureRecognizer(target: self, action: #selector(CameraPreviewUIView.focusAndExposeTap(gestureRecognizer:)))
+        self.addGestureRecognizer(gRecognizer)
     }
 
     private func setupPreview() {
@@ -308,32 +342,17 @@ struct MenuButton: View {
     let title: String
     let action: () -> Void
 
-    // Rainbow gradient for menu items
-    private let rainbowGradient = LinearGradient(
-        colors: [
-            .red,
-            .orange,
-            .yellow,
-            .green,
-            .blue,
-            .indigo,
-            .purple
-        ],
-        startPoint: .leading,
-        endPoint: .trailing
-    )
-
     var body: some View {
         Button(action: action) {
             HStack(spacing: 15) {
                 Image(systemName: icon)
                     .font(.system(size: 18, weight: .medium))
-                    .foregroundStyle(rainbowGradient)
+                    .foregroundColor(.white)
                     .frame(width: 25, height: 25)
 
                 Text(title)
                     .font(.system(size: 16, weight: .medium, design: .rounded))
-                    .foregroundStyle(rainbowGradient)
+                    .foregroundColor(.white)
 
                 Spacer()
             }
@@ -345,47 +364,6 @@ struct MenuButton: View {
     }
 }
 
-struct PsychedelicText: View {
-    let text: String
-    let size: CGFloat
-    @State private var animationPhase: Double = 0
-
-    init(_ text: String, size: CGFloat) {
-        self.text = text
-        self.size = size
-    }
-
-    var body: some View {
-        Text(text)
-            .font(.system(size: size, weight: .bold, design: .rounded))
-            .foregroundStyle(
-                LinearGradient(
-                    colors: [
-                        .pink,
-                        .purple,
-                        .blue,
-                        .cyan,
-                        .green,
-                        .yellow,
-                        .orange,
-                        .red
-                    ],
-                    startPoint: .leading,
-                    endPoint: .trailing
-                )
-            )
-            .shadow(color: .black, radius: 3, x: 2, y: 2)
-            .shadow(color: .pink.opacity(0.7), radius: 10, x: 0, y: 0)
-            .shadow(color: .cyan.opacity(0.5), radius: 15, x: 0, y: 0)
-            .scaleEffect(1.0 + sin(animationPhase) * 0.05)
-            .rotationEffect(.degrees(sin(animationPhase * 0.7) * 2))
-            .onAppear {
-                withAnimation(.linear(duration: 3).repeatForever(autoreverses: false)) {
-                    animationPhase = .pi * 2
-                }
-            }
-    }
-}
 
 #Preview {
     ContentView()
