@@ -524,18 +524,11 @@ class CameraManager: NSObject, ObservableObject, RecordingAudioDelegate, AVCaptu
 
     // MARK: - Photo Capture
     func capturePhoto() {
-        sessionQueue.async {
-            let settings = AVCapturePhotoSettings()
+        print("📸 Photo capture initiated - capturing frame with effects")
 
-            // Enable flash if available
-            if self.photoOutput.supportedFlashModes.contains(.auto) {
-                settings.flashMode = .auto
-            }
-
-            // Capture with effects processing
-            self.photoOutput.capturePhoto(with: settings, delegate: self)
-            print("📸 Photo capture initiated")
-        }
+        // Capture the current frame from the video output (which has effects applied)
+        // This will be handled by the effects processor
+        effectsProcessor.capturePhotoFrame()
     }
 
     // MARK: - AVCapturePhotoCaptureDelegate

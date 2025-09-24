@@ -11,6 +11,7 @@ struct VideoGalleryView: View {
     @State private var selectedAsset: PHAsset?
     @State private var showMediaViewer = false
     @State private var mediaURL: URL?
+    @State private var selectedPhoto: UIImage?
     @State private var authorizationStatus: PHAuthorizationStatus = .notDetermined
 
     private let columns = [
@@ -109,16 +110,16 @@ struct VideoGalleryView: View {
             checkPhotosPermission()
         }
         .fullScreenCover(isPresented: $showMediaViewer) {
-            if let mediaURL = mediaURL, let selectedAsset = selectedAsset {
-                if selectedAsset.mediaType == .video {
+            if let selectedAsset = selectedAsset {
+                if selectedAsset.mediaType == .video, let mediaURL = mediaURL {
                     VideoPlayerView(videoURL: mediaURL) {
                         showMediaViewer = false
                         self.mediaURL = nil
                     }
-                } else {
-                    PhotoViewerView(photoURL: mediaURL) {
+                } else if selectedAsset.mediaType == .image, let selectedPhoto = selectedPhoto {
+                    PhotoViewerView(photo: selectedPhoto) {
                         showMediaViewer = false
-                        self.mediaURL = nil
+                        self.selectedPhoto = nil
                     }
                 }
             }
@@ -251,25 +252,23 @@ struct VideoGalleryView: View {
         options.deliveryMode = .highQualityFormat
         options.isNetworkAccessAllowed = true
 
-        // Create temporary file URL for photo
-        let tempDir = FileManager.default.temporaryDirectory
-        let tempURL = tempDir.appendingPathComponent("temp_photo_\(UUID().uuidString).jpg")
-
-        PHImageManager.default().requestImageDataAndOrientation(for: asset, options: options) { imageData, _, _, info in
+        // Request the image directly
+        PHImageManager.default().requestImage(
+            for: asset,
+            targetSize: PHImageManagerMaximumSize,
+            contentMode: .aspectFit,
+            options: options
+        ) { image, info in
             DispatchQueue.main.async {
-                if let imageData = imageData {
-                    do {
-                        try imageData.write(to: tempURL)
-                        print("✅ Photo exported successfully to: \(tempURL)")
-                        self.mediaURL = tempURL
-                        self.showMediaViewer = true
-                    } catch {
-                        print("❌ Failed to write photo data: \(error)")
-                    }
+                if let image = image {
+                    print("✅ Photo loaded successfully")
+                    self.selectedPhoto = image
+                    self.showMediaViewer = true
                 } else if let error = info?[PHImageErrorKey] as? Error {
                     print("❌ Error loading photo: \(error)")
                 } else {
-                    print("❌ Failed to get photo data from asset")
+                    print("❌ Failed to get photo from asset")
+                    print("📊 Photo info: \(String(describing: info))")
                 }
             }
         }
@@ -561,23 +560,17 @@ struct VideoPlayerView: View {
 }
 
 struct PhotoViewerView: View {
-    let photoURL: URL
+    let photo: UIImage
     let onDismiss: () -> Void
 
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
 
-            AsyncImage(url: photoURL) { image in
-                image
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .ignoresSafeArea()
-            } placeholder: {
-                ProgressView()
-                    .scaleEffect(1.5)
-                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
-            }
+            Image(uiImage: photo)
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .ignoresSafeArea()
 
             VStack {
                 HStack {

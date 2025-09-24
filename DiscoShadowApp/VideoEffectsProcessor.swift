@@ -6,6 +6,7 @@ import Metal
 import MetalKit
 import simd
 import QuartzCore
+import Photos
 
 class VideoEffectsProcessor: NSObject {
     // Metal rendering components
@@ -162,6 +163,9 @@ class VideoEffectsProcessor: NSObject {
             return pixelBuffer
         }
 
+        // Store the processed pixel buffer for photo capture
+        currentProcessedPixelBuffer = outputBuffer
+
         print("✅ Applied Metal disco shadow effects")
         return outputBuffer
     }
@@ -204,6 +208,65 @@ class VideoEffectsProcessor: NSObject {
 
         print("✅ Metal texture successfully converted to pixel buffer")
         return buffer
+    }
+
+    // MARK: - Photo Capture
+    private var currentProcessedPixelBuffer: CVPixelBuffer?
+
+    func capturePhotoFrame() {
+        print("📸 Capturing photo frame with psychedelic effects")
+
+        // Use the most recently processed pixel buffer (with effects applied)
+        guard let pixelBuffer = currentProcessedPixelBuffer else {
+            print("❌ No processed frame available for photo capture")
+            return
+        }
+
+        // Convert pixel buffer to UIImage
+        guard let uiImage = pixelBufferToUIImage(pixelBuffer) else {
+            print("❌ Failed to convert pixel buffer to UIImage")
+            return
+        }
+
+        print("✅ Photo captured with effects applied")
+
+        // Save to Photos library
+        savePhotoToLibrary(uiImage)
+    }
+
+    private func pixelBufferToUIImage(_ pixelBuffer: CVPixelBuffer) -> UIImage? {
+        let ciImage = CIImage(cvPixelBuffer: pixelBuffer)
+        guard let cgImage = context.createCGImage(ciImage, from: ciImage.extent) else {
+            return nil
+        }
+        return UIImage(cgImage: cgImage)
+    }
+
+    private func savePhotoToLibrary(_ image: UIImage) {
+        print("💾 Saving psychedelic photo to library...")
+        PHPhotoLibrary.requestAuthorization(for: .addOnly) { status in
+            switch status {
+            case .authorized, .limited:
+                PHPhotoLibrary.shared().performChanges {
+                    _ = PHAssetChangeRequest.creationRequestForAsset(from: image)
+                    print("📸 Created psychedelic photo asset creation request")
+                } completionHandler: { success, error in
+                    DispatchQueue.main.async {
+                        if success {
+                            print("✅ Psychedelic photo saved to library successfully!")
+                        } else if let error = error {
+                            print("❌ Failed to save psychedelic photo: \(error.localizedDescription)")
+                        }
+                    }
+                }
+            case .denied, .restricted:
+                print("❌ Photos access denied for psychedelic photo saving")
+            case .notDetermined:
+                print("⚠️ Photos access not determined for psychedelic photo saving")
+            @unknown default:
+                print("⚠️ Unknown Photos authorization status for psychedelic photo saving")
+            }
+        }
     }
 
 }
