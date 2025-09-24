@@ -25,7 +25,6 @@ class CameraManager: NSObject, ObservableObject, RecordingAudioDelegate, AVCaptu
 
     var videoDataOutputDelegate: AVCaptureVideoDataOutputSampleBufferDelegate? {
         didSet {
-            print("🔄 Video data output delegate changed, updating...")
             updateVideoDataOutputDelegate()
         }
     }
@@ -106,7 +105,6 @@ class CameraManager: NSObject, ObservableObject, RecordingAudioDelegate, AVCaptu
         }
         session.addInput(videoDeviceInput)
 
-        print("📊 Video data output configured (delegate will be set later)")
         videoDataOutput.videoSettings = [kCVPixelBufferPixelFormatTypeKey as String: Int(kCVPixelFormatType_32BGRA)]
 
         guard session.canAddOutput(videoDataOutput) else {
@@ -141,7 +139,6 @@ class CameraManager: NSObject, ObservableObject, RecordingAudioDelegate, AVCaptu
 
     private func updateVideoDataOutputDelegate() {
         sessionQueue.async {
-            print("🔗 Actually setting video data output delegate: \(self.videoDataOutputDelegate != nil)")
             self.videoDataOutput.setSampleBufferDelegate(
                 self.videoDataOutputDelegate,
                 queue: DispatchQueue(label: "VideoDataOutput", qos: .userInitiated, attributes: [], autoreleaseFrequency: .workItem)
@@ -524,10 +521,7 @@ class CameraManager: NSObject, ObservableObject, RecordingAudioDelegate, AVCaptu
 
     // MARK: - Photo Capture
     func capturePhoto() {
-        print("📸 Photo capture initiated - capturing frame with effects")
-
         // Capture the current frame from the video output (which has effects applied)
-        // This will be handled by the effects processor
         effectsProcessor.capturePhotoFrame()
     }
 

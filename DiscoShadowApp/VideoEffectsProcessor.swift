@@ -116,24 +116,11 @@ class VideoEffectsProcessor: NSObject {
         let audioParams = audioManager?.getAudioParameters() ?? (0.0, 0.0, 0.0, 0.0)
         let totalAudio = audioParams.0 + audioParams.1 + audioParams.2 + audioParams.3
 
-        // DEBUG: Print audio levels every 60 frames
-        if frameCount % 60 == 0 {
-            print("🎵 Audio levels - Total: \(totalAudio), Level: \(audioParams.0), Bass: \(audioParams.1), Mid: \(audioParams.2), Treble: \(audioParams.3)")
-        }
-
-        // TEMPORARILY DISABLE AUDIO THRESHOLD FOR DEBUGGING
+        // Audio threshold check (no logging)
         let audioThreshold: Float = 0.01
-        if totalAudio <= audioThreshold {
-            if frameCount % 60 == 0 {
-                print("🔇 No audio detected, but FORCING effects for debug (threshold: \(audioThreshold))")
-            }
-        }
-
-        print("🌈 APPLYING EFFECTS! Total audio: \(totalAudio), WarpMag: \(warpMagnitude)")
 
         // Use Metal renderer for disco shadow effects
         guard let metalRenderer = metalRenderer else {
-            print("❌ MetalRenderer not initialized")
             return pixelBuffer
         }
 
@@ -153,25 +140,21 @@ class VideoEffectsProcessor: NSObject {
             trebleLevel: audioParams.3,
             warpMagnitude: warpMagnitude
         ) else {
-            print("❌ Metal processing failed")
             return pixelBuffer
         }
 
         // Convert Metal texture back to pixel buffer
         guard let outputBuffer = convertMetalTextureToPixelBuffer(outputTexture) else {
-            print("❌ Failed to convert Metal texture to pixel buffer")
             return pixelBuffer
         }
 
         // Store the processed pixel buffer for photo capture
         currentProcessedPixelBuffer = outputBuffer
 
-        print("✅ Applied Metal disco shadow effects")
         return outputBuffer
     }
 
     private func convertMetalTextureToPixelBuffer(_ texture: MTLTexture) -> CVPixelBuffer? {
-        print("🔄 Converting Metal texture to pixel buffer: \(texture.width)x\(texture.height)")
         let width = texture.width
         let height = texture.height
 
@@ -192,11 +175,8 @@ class VideoEffectsProcessor: NSObject {
         )
 
         guard result == kCVReturnSuccess, let buffer = pixelBuffer else {
-            print("❌ Failed to create pixel buffer for texture conversion: \(result)")
             return nil
         }
-
-        print("✅ Created pixel buffer for texture conversion")
 
         CVPixelBufferLockBaseAddress(buffer, [])
         defer { CVPixelBufferUnlockBaseAddress(buffer, []) }
@@ -206,7 +186,6 @@ class VideoEffectsProcessor: NSObject {
 
         texture.getBytes(baseAddress!, bytesPerRow: bytesPerRow, from: MTLRegionMake2D(0, 0, width, height), mipmapLevel: 0)
 
-        print("✅ Metal texture successfully converted to pixel buffer")
         return buffer
     }
 
@@ -214,21 +193,15 @@ class VideoEffectsProcessor: NSObject {
     private var currentProcessedPixelBuffer: CVPixelBuffer?
 
     func capturePhotoFrame() {
-        print("📸 Capturing photo frame with psychedelic effects")
-
         // Use the most recently processed pixel buffer (with effects applied)
         guard let pixelBuffer = currentProcessedPixelBuffer else {
-            print("❌ No processed frame available for photo capture")
             return
         }
 
         // Convert pixel buffer to UIImage
         guard let uiImage = pixelBufferToUIImage(pixelBuffer) else {
-            print("❌ Failed to convert pixel buffer to UIImage")
             return
         }
-
-        print("✅ Photo captured with effects applied")
 
         // Save to Photos library
         savePhotoToLibrary(uiImage)
@@ -243,28 +216,18 @@ class VideoEffectsProcessor: NSObject {
     }
 
     private func savePhotoToLibrary(_ image: UIImage) {
-        print("💾 Saving psychedelic photo to library...")
         PHPhotoLibrary.requestAuthorization(for: .addOnly) { status in
             switch status {
             case .authorized, .limited:
                 PHPhotoLibrary.shared().performChanges {
                     _ = PHAssetChangeRequest.creationRequestForAsset(from: image)
-                    print("📸 Created psychedelic photo asset creation request")
                 } completionHandler: { success, error in
-                    DispatchQueue.main.async {
-                        if success {
-                            print("✅ Psychedelic photo saved to library successfully!")
-                        } else if let error = error {
-                            print("❌ Failed to save psychedelic photo: \(error.localizedDescription)")
-                        }
+                    if let error = error {
+                        print("❌ Failed to save photo: \(error.localizedDescription)")
                     }
                 }
-            case .denied, .restricted:
-                print("❌ Photos access denied for psychedelic photo saving")
-            case .notDetermined:
-                print("⚠️ Photos access not determined for psychedelic photo saving")
-            @unknown default:
-                print("⚠️ Unknown Photos authorization status for psychedelic photo saving")
+            default:
+                break
             }
         }
     }

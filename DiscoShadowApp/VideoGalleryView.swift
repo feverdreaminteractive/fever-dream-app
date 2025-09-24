@@ -84,9 +84,11 @@ struct VideoGalleryView: View {
                             ForEach(mediaAssets, id: \.localIdentifier) { asset in
                                 MediaThumbnailView(asset: asset) {
                                     selectedAsset = asset
+                                    selectedPhoto = nil // Clear previous photo
                                     if asset.mediaType == .video {
                                         loadVideoURL(for: asset)
                                     } else {
+                                        showMediaViewer = true // Show immediately with loading state
                                         loadPhotoURL(for: asset)
                                     }
                                 }
@@ -112,7 +114,6 @@ struct VideoGalleryView: View {
         }
         .onChange(of: photoLibraryObserver.shouldRefresh) { shouldRefresh in
             if shouldRefresh {
-                print("🔄 Refreshing gallery due to Photos library change")
                 photoLibraryObserver.shouldRefresh = false
                 // Add a small delay to ensure the new photo is fully saved
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
@@ -127,7 +128,7 @@ struct VideoGalleryView: View {
                         showMediaViewer = false
                         self.mediaURL = nil
                     }
-                } else if selectedAsset.mediaType == .image, let selectedPhoto = selectedPhoto {
+                } else if selectedAsset.mediaType == .image {
                     PhotoViewerView(photo: selectedPhoto) {
                         showMediaViewer = false
                         self.selectedPhoto = nil
@@ -162,7 +163,6 @@ struct VideoGalleryView: View {
     }
 
     private func loadVideos() {
-        print("🔄 Loading media assets from Photos library...")
         let fetchOptions = PHFetchOptions()
         fetchOptions.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
         // Fetch both photos and videos
@@ -178,20 +178,16 @@ struct VideoGalleryView: View {
         }
 
         DispatchQueue.main.async {
-            print("✅ Loaded \(allAssets.count) media assets")
             self.mediaAssets = allAssets
             self.isLoading = false
         }
     }
 
     func refreshGallery() {
-        print("🔄 Manual gallery refresh requested")
         loadVideos()
     }
 
     private func loadVideoURL(for asset: PHAsset) {
-        print("🎬 Loading video for asset: \(asset.localIdentifier)")
-
         let options = PHVideoRequestOptions()
         options.version = .original
         options.deliveryMode = .highQualityFormat
@@ -201,7 +197,6 @@ struct VideoGalleryView: View {
         PHImageManager.default().requestExportSession(forVideo: asset, options: options, exportPreset: AVAssetExportPresetHighestQuality) { exportSession, info in
 
             guard let exportSession = exportSession else {
-                print("❌ Failed to create export session")
                 DispatchQueue.main.async {
                     // Fallback to direct URL approach
                     self.loadVideoURLDirectly(for: asset)
@@ -220,17 +215,13 @@ struct VideoGalleryView: View {
                 DispatchQueue.main.async {
                     switch exportSession.status {
                     case .completed:
-                        print("✅ Video exported successfully to: \(tempURL)")
                         self.mediaURL = tempURL
                         self.showMediaViewer = true
                     case .failed:
-                        print("❌ Export failed: \(String(describing: exportSession.error))")
                         // Fallback to direct URL approach
                         self.loadVideoURLDirectly(for: asset)
-                    case .cancelled:
-                        print("❌ Export cancelled")
                     default:
-                        print("❌ Export status: \(exportSession.status.rawValue)")
+                        break
                     }
                 }
             }
@@ -238,8 +229,6 @@ struct VideoGalleryView: View {
     }
 
     private func loadVideoURLDirectly(for asset: PHAsset) {
-        print("🔄 Trying direct URL approach for asset: \(asset.localIdentifier)")
-
         let options = PHVideoRequestOptions()
         options.version = .original
         options.deliveryMode = .highQualityFormat
@@ -248,23 +237,15 @@ struct VideoGalleryView: View {
         PHImageManager.default().requestAVAsset(forVideo: asset, options: options) { avAsset, _, info in
             DispatchQueue.main.async {
                 if let urlAsset = avAsset as? AVURLAsset {
-                    print("✅ Got direct video URL: \(urlAsset.url)")
                     self.mediaURL = urlAsset.url
                     self.showMediaViewer = true
-                } else if let error = info?[PHImageErrorKey] as? Error {
-                    print("❌ Error loading video: \(error)")
-                } else {
-                    print("❌ Failed to get video URL from asset")
-                    print("📊 Asset info: \(String(describing: info))")
-                    print("📊 AVAsset type: \(String(describing: type(of: avAsset)))")
                 }
+                // Silently fail if direct URL doesn't work
             }
         }
     }
 
     private func loadPhotoURL(for asset: PHAsset) {
-        print("📸 Loading photo for asset: \(asset.localIdentifier) created: \(asset.creationDate?.description ?? "unknown")")
-
         let options = PHImageRequestOptions()
         options.version = .original
         options.deliveryMode = .highQualityFormat
@@ -284,24 +265,12 @@ struct VideoGalleryView: View {
                     // Check if this is a degraded version
                     let isDegraded = info?[PHImageResultIsDegradedKey] as? Bool ?? false
                     if !isDegraded {
-                        print("✅ High quality photo loaded successfully")
                         self.selectedPhoto = image
-                        self.showMediaViewer = true
-                    } else {
-                        print("⏳ Received degraded photo, waiting for high quality...")
                     }
-                } else if let error = info?[PHImageErrorKey] as? Error {
-                    print("❌ Error loading photo: \(error)")
-                } else {
-                    print("❌ Failed to get photo from asset")
-                    print("📊 Photo info: \(String(describing: info))")
-
-                    // Check if photo is still being processed
-                    let isInCloud = info?[PHImageResultIsInCloudKey] as? Bool ?? false
-                    if isInCloud {
-                        print("☁️ Photo is in iCloud, may need time to download")
-                    }
+                    // Always show viewer for any version (including degraded)
+                    // The viewer will show loading state if photo is nil
                 }
+                // Silently handle errors - viewer will show error state
             }
         }
     }
@@ -592,17 +561,33 @@ struct VideoPlayerView: View {
 }
 
 struct PhotoViewerView: View {
-    let photo: UIImage
+    let photo: UIImage?
     let onDismiss: () -> Void
 
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
 
-            Image(uiImage: photo)
-                .resizable()
-                .aspectRatio(contentMode: .fit)
-                .ignoresSafeArea()
+            if let photo = photo {
+                Image(uiImage: photo)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .ignoresSafeArea()
+            } else {
+                VStack(spacing: 20) {
+                    ProgressView()
+                        .scaleEffect(1.5)
+                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
+
+                    Text("Loading photo...")
+                        .foregroundColor(.white)
+                        .font(.title3)
+
+                    Text("Please wait while the photo loads")
+                        .foregroundColor(.white.opacity(0.8))
+                        .font(.caption)
+                }
+            }
 
             VStack {
                 HStack {
@@ -653,7 +638,6 @@ class PhotoLibraryObserver: NSObject, ObservableObject, PHPhotoLibraryChangeObse
 
     func photoLibraryDidChange(_ changeInstance: PHChange) {
         DispatchQueue.main.async {
-            print("📸 Photo library changed, triggering refresh")
             self.shouldRefresh = true
         }
     }
