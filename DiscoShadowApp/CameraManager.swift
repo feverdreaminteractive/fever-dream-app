@@ -4,7 +4,7 @@ import Combine
 import Photos
 import CoreVideo
 
-class CameraManager: NSObject, ObservableObject, RecordingAudioDelegate {
+class CameraManager: NSObject, ObservableObject, RecordingAudioDelegate, AVCapturePhotoCaptureDelegate {
     @Published var isSessionRunning = false
     @Published var shouldShowAlertView = false
     @Published var alertError: AlertError = AlertError()
@@ -20,6 +20,7 @@ class CameraManager: NSObject, ObservableObject, RecordingAudioDelegate {
     let session = AVCaptureSession()
     private var videoDeviceInput: AVCaptureDeviceInput!
     private let videoDataOutput = AVCaptureVideoDataOutput()
+    private let photoOutput = AVCapturePhotoOutput()
     private let sessionQueue = DispatchQueue(label: "session queue")
 
     var videoDataOutputDelegate: AVCaptureVideoDataOutputSampleBufferDelegate? {
@@ -114,11 +115,26 @@ class CameraManager: NSObject, ObservableObject, RecordingAudioDelegate {
         }
         session.addOutput(videoDataOutput)
 
+        // Add photo output
+        guard session.canAddOutput(photoOutput) else {
+            print("Couldn't add photo output to the session")
+            return
+        }
+        session.addOutput(photoOutput)
+
         if let connection = videoDataOutput.connection(with: .video) {
             connection.videoOrientation = .portrait
             // Mirror front camera for natural selfie experience
             if isUsingFrontCamera {
                 connection.isVideoMirrored = true
+            }
+        }
+
+        // Configure photo output
+        if let photoConnection = photoOutput.connection(with: .video) {
+            photoConnection.videoOrientation = .portrait
+            if isUsingFrontCamera {
+                photoConnection.isVideoMirrored = true
             }
         }
     }
@@ -502,6 +518,79 @@ class CameraManager: NSObject, ObservableObject, RecordingAudioDelegate {
                 device.unlockForConfiguration()
             } catch {
                 print("Error setting focus and exposure: \(error)")
+            }
+        }
+    }
+
+    // MARK: - Photo Capture
+    func capturePhoto() {
+        sessionQueue.async {
+            let settings = AVCapturePhotoSettings()
+
+            // Enable flash if available
+            if self.photoOutput.supportedFlashModes.contains(.auto) {
+                settings.flashMode = .auto
+            }
+
+            // Capture with effects processing
+            self.photoOutput.capturePhoto(with: settings, delegate: self)
+            print("📸 Photo capture initiated")
+        }
+    }
+
+    // MARK: - AVCapturePhotoCaptureDelegate
+    func photoOutput(_ output: AVCapturePhotoOutput, didFinishProcessingPhoto photo: AVCapturePhoto, error: Error?) {
+        guard error == nil else {
+            print("❌ Photo capture error: \(String(describing: error))")
+            return
+        }
+
+        guard let imageData = photo.fileDataRepresentation() else {
+            print("❌ Failed to get photo data")
+            return
+        }
+
+        guard let uiImage = UIImage(data: imageData) else {
+            print("❌ Failed to create UIImage from photo data")
+            return
+        }
+
+        // Apply effects to the photo if desired
+        let processedImage = applyEffectsToPhoto(uiImage)
+
+        // Save to Photos
+        savePhotoToLibrary(processedImage)
+    }
+
+    private func applyEffectsToPhoto(_ image: UIImage) -> UIImage {
+        // For now, return the original image
+        // In the future, you could apply psychedelic effects to photos too
+        return image
+    }
+
+    private func savePhotoToLibrary(_ image: UIImage) {
+        print("💾 Saving photo to library...")
+        PHPhotoLibrary.requestAuthorization(for: .addOnly) { status in
+            switch status {
+            case .authorized, .limited:
+                PHPhotoLibrary.shared().performChanges {
+                    _ = PHAssetChangeRequest.creationRequestForAsset(from: image)
+                    print("📸 Created photo asset creation request")
+                } completionHandler: { success, error in
+                    DispatchQueue.main.async {
+                        if success {
+                            print("✅ Photo saved to library successfully!")
+                        } else if let error = error {
+                            print("❌ Failed to save photo: \(error.localizedDescription)")
+                        }
+                    }
+                }
+            case .denied, .restricted:
+                print("❌ Photos access denied for photo saving")
+            case .notDetermined:
+                print("⚠️ Photos access not determined for photo saving")
+            @unknown default:
+                print("⚠️ Unknown Photos authorization status for photo saving")
             }
         }
     }

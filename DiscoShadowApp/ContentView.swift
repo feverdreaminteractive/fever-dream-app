@@ -9,24 +9,53 @@ struct ContentView: View {
     @State private var showMenu = false
     @State private var showVideoGallery = false
     @State private var currentZoomFactor: CGFloat = 1.0
+    @State private var captureMode: CaptureMode = .video
 
-    // Clean capture button
+    enum CaptureMode: String, CaseIterable {
+        case photo = "PHOTO"
+        case video = "VIDEO"
+    }
+
+    // Capture button for both photo and video
     var captureButton: some View {
         Button(action: {
-            if cameraManager.isRecording {
-                cameraManager.stopRecording()
-            } else {
-                cameraManager.startRecording()
+            switch captureMode {
+            case .photo:
+                cameraManager.capturePhoto()
+            case .video:
+                if cameraManager.isRecording {
+                    cameraManager.stopRecording()
+                } else {
+                    cameraManager.startRecording()
+                }
             }
         }) {
-            Circle()
-                .foregroundColor(cameraManager.isRecording ? .red : .white)
-                .frame(width: 80, height: 80, alignment: .center)
-                .overlay(
+            ZStack {
+                Circle()
+                    .foregroundColor(.white)
+                    .frame(width: 80, height: 80)
+
+                if captureMode == .video {
+                    Circle()
+                        .foregroundColor(cameraManager.isRecording ? .red : .white)
+                        .frame(width: 65, height: 65)
+                        .overlay(
+                            Circle()
+                                .stroke(Color.black.opacity(0.8), lineWidth: 2)
+                        )
+
+                    if cameraManager.isRecording {
+                        RoundedRectangle(cornerRadius: 4)
+                            .foregroundColor(.white)
+                            .frame(width: 25, height: 25)
+                    }
+                } else {
+                    // Photo mode - simple white circle
                     Circle()
                         .stroke(Color.black.opacity(0.8), lineWidth: 2)
-                        .frame(width: 65, height: 65, alignment: .center)
-                )
+                        .frame(width: 65, height: 65)
+                }
+            }
         }
     }
 
@@ -106,6 +135,24 @@ struct ContentView: View {
                                     }
                                 })
                             )
+
+                        // Mode switcher
+                        HStack(spacing: 30) {
+                            ForEach(CaptureMode.allCases, id: \.self) { mode in
+                                Button(action: {
+                                    withAnimation(.easeInOut(duration: 0.2)) {
+                                        captureMode = mode
+                                    }
+                                }) {
+                                    Text(mode.rawValue)
+                                        .font(.system(size: 16, weight: captureMode == mode ? .bold : .medium))
+                                        .foregroundColor(captureMode == mode ? .yellow : .white.opacity(0.7))
+                                        .scaleEffect(captureMode == mode ? 1.1 : 1.0)
+                                }
+                                .disabled(cameraManager.isRecording)
+                            }
+                        }
+                        .padding(.vertical, 10)
 
                         // Professional camera controls at bottom
                         HStack {
