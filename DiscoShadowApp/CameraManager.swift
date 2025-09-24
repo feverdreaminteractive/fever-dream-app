@@ -1,7 +1,6 @@
 import AVFoundation
 import UIKit
 import Combine
-import Photos
 import CoreVideo
 
 class CameraManager: NSObject, ObservableObject, RecordingAudioDelegate, AVCapturePhotoCaptureDelegate {
@@ -88,19 +87,16 @@ class CameraManager: NSObject, ObservableObject, RecordingAudioDelegate, AVCaptu
 
         let cameraPosition: AVCaptureDevice.Position = isUsingFrontCamera ? .front : .back
         guard let videoDevice = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: cameraPosition) else {
-            print("Failed to get the camera device for position: \(cameraPosition)")
             return
         }
 
         do {
             videoDeviceInput = try AVCaptureDeviceInput(device: videoDevice)
         } catch {
-            print("Failed to create video device input: \(error)")
             return
         }
 
         guard session.canAddInput(videoDeviceInput) else {
-            print("Couldn't add video device input to the session")
             return
         }
         session.addInput(videoDeviceInput)
@@ -108,14 +104,12 @@ class CameraManager: NSObject, ObservableObject, RecordingAudioDelegate, AVCaptu
         videoDataOutput.videoSettings = [kCVPixelBufferPixelFormatTypeKey as String: Int(kCVPixelFormatType_32BGRA)]
 
         guard session.canAddOutput(videoDataOutput) else {
-            print("Couldn't add video data output to the session")
             return
         }
         session.addOutput(videoDataOutput)
 
         // Add photo output
         guard session.canAddOutput(photoOutput) else {
-            print("Couldn't add photo output to the session")
             return
         }
         session.addOutput(photoOutput)
@@ -173,7 +167,6 @@ class CameraManager: NSObject, ObservableObject, RecordingAudioDelegate, AVCaptu
     func switchCamera() {
         sessionQueue.async {
             guard !self.isRecording else {
-                print("Cannot switch camera while recording")
                 return
             }
 
@@ -190,7 +183,6 @@ class CameraManager: NSObject, ObservableObject, RecordingAudioDelegate, AVCaptu
             // Get new camera
             let newPosition: AVCaptureDevice.Position = self.isUsingFrontCamera ? .front : .back
             guard let newVideoDevice = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: newPosition) else {
-                print("Failed to get camera for position: \(newPosition)")
                 return
             }
 
@@ -207,48 +199,42 @@ class CameraManager: NSObject, ObservableObject, RecordingAudioDelegate, AVCaptu
                         connection.isVideoMirrored = (newPosition == .front)
                     }
 
-                    print("✅ Switched to \(newPosition == .front ? "front" : "back") camera")
                 } else {
-                    print("❌ Cannot add new camera input")
                 }
             } catch {
-                print("❌ Error creating camera input: \(error)")
             }
         }
     }
 
     func startRecording() {
-        print("🎬 Starting recording...")
         recordingQueue.async {
             guard !self.isRecording else {
-                print("❌ Already recording, ignoring start request")
                 return
             }
 
             let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
-            let outputURL = documentsURL.appendingPathComponent("DiscoShadow_\(Date().timeIntervalSince1970).mp4")
+            let outputURL = documentsURL.appendingPathComponent("FeverDream_DiscoShadow_\(Date().timeIntervalSince1970).mp4")
             self.recordingURL = outputURL
-            print("📁 Recording to: \(outputURL)")
 
             do {
                 // Create asset writer
                 self.assetWriter = try AVAssetWriter(outputURL: outputURL, fileType: .mp4)
-                print("✅ Asset writer created")
 
-                // Configure video input
+                // Configure video input - optimized for smaller file sizes and faster loading
                 let videoSettings: [String: Any] = [
                     AVVideoCodecKey: AVVideoCodecType.h264,
-                    AVVideoWidthKey: 1080,
-                    AVVideoHeightKey: 1920,
+                    AVVideoWidthKey: 720,  // Reduced from 1080
+                    AVVideoHeightKey: 1280, // Reduced from 1920
                     AVVideoCompressionPropertiesKey: [
-                        AVVideoAverageBitRateKey: 6000000,
+                        AVVideoAverageBitRateKey: 2500000, // Reduced from 6000000
                         AVVideoProfileLevelKey: AVVideoProfileLevelH264HighAutoLevel,
+                        AVVideoMaxKeyFrameIntervalKey: 30, // Add keyframe interval for better compression
+                        AVVideoQualityKey: 0.7 // Slightly reduce quality for smaller files
                     ]
                 ]
 
                 self.assetWriterVideoInput = AVAssetWriterInput(mediaType: .video, outputSettings: videoSettings)
                 self.assetWriterVideoInput?.expectsMediaDataInRealTime = true
-                print("✅ Video input created")
 
                 // Configure audio input with simpler settings
                 let audioSettings: [String: Any] = [
@@ -260,28 +246,24 @@ class CameraManager: NSObject, ObservableObject, RecordingAudioDelegate, AVCaptu
 
                 self.assetWriterAudioInput = AVAssetWriterInput(mediaType: .audio, outputSettings: audioSettings)
                 self.assetWriterAudioInput?.expectsMediaDataInRealTime = true
-                print("✅ Audio input created")
 
-                // Create pixel buffer adaptor
+                // Create pixel buffer adaptor - updated for new resolution
                 let adaptor = AVAssetWriterInputPixelBufferAdaptor(
                     assetWriterInput: self.assetWriterVideoInput!,
                     sourcePixelBufferAttributes: [
                         kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
-                        kCVPixelBufferWidthKey as String: 1080,
-                        kCVPixelBufferHeightKey as String: 1920,
+                        kCVPixelBufferWidthKey as String: 720,  // Match video settings
+                        kCVPixelBufferHeightKey as String: 1280, // Match video settings
                     ]
                 )
                 self.assetWriterPixelBufferAdaptor = adaptor
-                print("✅ Pixel buffer adaptor created")
 
                 // Add inputs to writer
                 if let videoInput = self.assetWriterVideoInput,
                    let writer = self.assetWriter,
                    writer.canAdd(videoInput) {
                     writer.add(videoInput)
-                    print("✅ Video input added to writer")
                 } else {
-                    print("❌ Cannot add video input to writer")
                     return
                 }
 
@@ -289,9 +271,7 @@ class CameraManager: NSObject, ObservableObject, RecordingAudioDelegate, AVCaptu
                    let writer = self.assetWriter,
                    writer.canAdd(audioInput) {
                     writer.add(audioInput)
-                    print("✅ Audio input added to writer")
                 } else {
-                    print("❌ Cannot add audio input to writer")
                     return
                 }
 
@@ -300,51 +280,40 @@ class CameraManager: NSObject, ObservableObject, RecordingAudioDelegate, AVCaptu
                     self.recordingStartTime = CMTime.zero
                     self.frameCounter = 0
                     writer.startSession(atSourceTime: CMTime.zero)
-                    print("✅ Asset writer started writing")
 
                     // Keep AudioManager running for visual effects during recording
 
                     DispatchQueue.main.async {
                         self.isRecording = true
-                        print("✅ Recording started - visual effects should continue working")
                     }
                 } else {
-                    print("❌ Failed to start asset writer")
                 }
             } catch {
-                print("❌ Failed to start recording: \(error)")
             }
         }
     }
 
     func stopRecording() {
-        print("🛑 Stopping recording...")
         recordingQueue.async {
             guard self.isRecording else {
-                print("❌ Not recording, ignoring stop request")
                 return
             }
 
             DispatchQueue.main.async {
                 self.isRecording = false
-                print("✅ Recording stopped - visual effects continue")
             }
 
             self.assetWriterVideoInput?.markAsFinished()
             self.assetWriterAudioInput?.markAsFinished()
-            print("✅ Video and audio inputs marked as finished")
 
             self.assetWriter?.finishWriting {
-                print("✅ Asset writer finished writing")
 
                 // AudioManager continues running for visual effects
 
                 DispatchQueue.main.async {
                     if let outputURL = self.recordingURL {
-                        print("💾 Saving video to Photos: \(outputURL)")
                         self.saveVideoToPhotos(url: outputURL)
                     } else {
-                        print("❌ No recording URL to save")
                     }
                 }
 
@@ -355,34 +324,28 @@ class CameraManager: NSObject, ObservableObject, RecordingAudioDelegate, AVCaptu
                 self.assetWriterPixelBufferAdaptor = nil
                 self.recordingStartTime = nil
                 self.frameCounter = 0
-                print("🧹 Recording cleanup completed")
             }
         }
     }
 
     func writeVideoFrame(_ pixelBuffer: CVPixelBuffer) {
         guard isRecording else {
-            print("📹 Not recording, skipping frame")
             return
         }
 
         guard let assetWriter = assetWriter else {
-            print("❌ Asset writer is nil")
             return
         }
 
         guard let videoInput = assetWriterVideoInput else {
-            print("❌ Video input is nil")
             return
         }
 
         guard let adaptor = assetWriterPixelBufferAdaptor else {
-            print("❌ Pixel buffer adaptor is nil")
             return
         }
 
         guard assetWriter.status == .writing else {
-            print("❌ Asset writer status: \(assetWriter.status.rawValue)")
             return
         }
 
@@ -393,16 +356,13 @@ class CameraManager: NSObject, ObservableObject, RecordingAudioDelegate, AVCaptu
 
                 let success = adaptor.append(pixelBuffer, withPresentationTime: presentationTime)
                 if !success {
-                    print("❌ Failed to append video frame #\(self.frameCounter)")
                 } else {
                     self.frameCounter += 1
                     // Log every 30 frames to avoid spam
                     if self.frameCounter % 30 == 0 {
-                        print("✅ Video frame #\(self.frameCounter) written")
                     }
                 }
             } else {
-                print("⏸️ Video input not ready for more data")
             }
         }
     }
@@ -419,11 +379,9 @@ class CameraManager: NSObject, ObservableObject, RecordingAudioDelegate, AVCaptu
             if audioInput.isReadyForMoreMediaData {
                 let success = audioInput.append(sampleBuffer)
                 if !success {
-                    print("❌ Failed to append audio sample buffer")
                 }
                 // Only log failures to reduce verbosity
             } else {
-                print("⏸️ Audio input not ready for more data")
             }
         }
     }
@@ -434,44 +392,13 @@ class CameraManager: NSObject, ObservableObject, RecordingAudioDelegate, AVCaptu
     }
 
     private func saveVideoToPhotos(url: URL) {
-        print("💾 Requesting Photos authorization...")
-        PHPhotoLibrary.requestAuthorization(for: .addOnly) { status in
-            print("📸 Photos authorization status: \(status.rawValue)")
-            switch status {
-            case .authorized, .limited:
-                print("✅ Photos access granted, saving video...")
-                PHPhotoLibrary.shared().performChanges {
-                    _ = PHAssetChangeRequest.creationRequestForAssetFromVideo(atFileURL: url)
-                    print("📸 Created asset creation request")
-                } completionHandler: { success, error in
-                    DispatchQueue.main.async {
-                        if success {
-                            print("✅ Video saved to Photos successfully!")
-                            // Show user feedback
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                                // Could add a success notification here
-                            }
-                        } else if let error = error {
-                            print("❌ Failed to save video: \(error.localizedDescription)")
-                        }
+        // Keep video in Documents directory - don't delete it
+        print("🎥 Video saved to Documents: \(url.lastPathComponent)")
 
-                        // Clean up temporary file
-                        do {
-                            try FileManager.default.removeItem(at: url)
-                            print("🗑️ Temporary file cleaned up")
-                        } catch {
-                            print("⚠️ Failed to clean up temporary file: \(error)")
-                        }
-                    }
-                }
-            case .denied, .restricted:
-                print("❌ Photos access denied or restricted")
-            case .notDetermined:
-                print("⚠️ Photos access not determined")
-            @unknown default:
-                print("⚠️ Unknown Photos authorization status")
-            }
-        }
+        // Notify gallery to refresh
+        NotificationCenter.default.post(name: .init("MediaCaptured"), object: nil)
+
+        // No cleanup - keep the file for our Documents-based gallery
     }
 
     func setZoom(_ factor: CGFloat) {
@@ -490,7 +417,6 @@ class CameraManager: NSObject, ObservableObject, RecordingAudioDelegate, AVCaptu
 
                 device.unlockForConfiguration()
             } catch {
-                print("Error setting zoom: \(error)")
             }
         }
     }
@@ -514,7 +440,6 @@ class CameraManager: NSObject, ObservableObject, RecordingAudioDelegate, AVCaptu
 
                 device.unlockForConfiguration()
             } catch {
-                print("Error setting focus and exposure: \(error)")
             }
         }
     }
@@ -528,17 +453,14 @@ class CameraManager: NSObject, ObservableObject, RecordingAudioDelegate, AVCaptu
     // MARK: - AVCapturePhotoCaptureDelegate
     func photoOutput(_ output: AVCapturePhotoOutput, didFinishProcessingPhoto photo: AVCapturePhoto, error: Error?) {
         guard error == nil else {
-            print("❌ Photo capture error: \(String(describing: error))")
             return
         }
 
         guard let imageData = photo.fileDataRepresentation() else {
-            print("❌ Failed to get photo data")
             return
         }
 
         guard let uiImage = UIImage(data: imageData) else {
-            print("❌ Failed to create UIImage from photo data")
             return
         }
 
@@ -556,30 +478,8 @@ class CameraManager: NSObject, ObservableObject, RecordingAudioDelegate, AVCaptu
     }
 
     private func savePhotoToLibrary(_ image: UIImage) {
-        print("💾 Saving photo to library...")
-        PHPhotoLibrary.requestAuthorization(for: .addOnly) { status in
-            switch status {
-            case .authorized, .limited:
-                PHPhotoLibrary.shared().performChanges {
-                    _ = PHAssetChangeRequest.creationRequestForAsset(from: image)
-                    print("📸 Created photo asset creation request")
-                } completionHandler: { success, error in
-                    DispatchQueue.main.async {
-                        if success {
-                            print("✅ Photo saved to library successfully!")
-                        } else if let error = error {
-                            print("❌ Failed to save photo: \(error.localizedDescription)")
-                        }
-                    }
-                }
-            case .denied, .restricted:
-                print("❌ Photos access denied for photo saving")
-            case .notDetermined:
-                print("⚠️ Photos access not determined for photo saving")
-            @unknown default:
-                print("⚠️ Unknown Photos authorization status for photo saving")
-            }
-        }
+        // Managed photos functionality disabled
+        print("📸 Photo captured (not saved to photo library)")
     }
 }
 

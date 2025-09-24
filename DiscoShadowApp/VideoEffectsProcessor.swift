@@ -6,7 +6,6 @@ import Metal
 import MetalKit
 import simd
 import QuartzCore
-import Photos
 
 class VideoEffectsProcessor: NSObject {
     // Metal rendering components
@@ -93,9 +92,7 @@ class VideoEffectsProcessor: NSObject {
     }
 
     private func setupMetalRenderer() {
-        print("🔧 Setting up MetalRenderer...")
         metalRenderer = MetalRenderer()
-        print("✅ MetalRenderer initialized")
     }
 
     private func setupAudioManager() {
@@ -118,6 +115,7 @@ class VideoEffectsProcessor: NSObject {
 
         // Audio threshold check (no logging)
         let audioThreshold: Float = 0.01
+        let audioBasedIntensity = totalAudio > audioThreshold ? intensity : intensity * 0.5
 
         // Use Metal renderer for disco shadow effects
         guard let metalRenderer = metalRenderer else {
@@ -125,7 +123,7 @@ class VideoEffectsProcessor: NSObject {
         }
 
         // Update MetalRenderer properties with current values
-        metalRenderer.intensity = intensity
+        metalRenderer.intensity = audioBasedIntensity
         metalRenderer.colorVariation = colorVariation
         metalRenderer.glitchIntensity = glitchIntensity
         metalRenderer.warpAmount = warpAmount
@@ -216,19 +214,23 @@ class VideoEffectsProcessor: NSObject {
     }
 
     private func savePhotoToLibrary(_ image: UIImage) {
-        PHPhotoLibrary.requestAuthorization(for: .addOnly) { status in
-            switch status {
-            case .authorized, .limited:
-                PHPhotoLibrary.shared().performChanges {
-                    _ = PHAssetChangeRequest.creationRequestForAsset(from: image)
-                } completionHandler: { success, error in
-                    if let error = error {
-                        print("❌ Failed to save photo: \(error.localizedDescription)")
-                    }
-                }
-            default:
-                break
-            }
+        // Save photo to Documents directory
+        let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+        let photoURL = documentsURL.appendingPathComponent("FeverDream_Photo_\(Date().timeIntervalSince1970).jpg")
+
+        guard let imageData = image.jpegData(compressionQuality: 0.9) else {
+            print("📸 Failed to convert image to JPEG")
+            return
+        }
+
+        do {
+            try imageData.write(to: photoURL)
+            print("📸 Photo saved to Documents: \(photoURL.lastPathComponent)")
+
+            // Notify gallery to refresh
+            NotificationCenter.default.post(name: .init("MediaCaptured"), object: nil)
+        } catch {
+            print("📸 Failed to save photo: \(error.localizedDescription)")
         }
     }
 

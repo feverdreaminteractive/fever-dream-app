@@ -29,9 +29,10 @@ class AudioManager: NSObject, ObservableObject {
 
     // FFT analysis
     private var fftSetup: FFTSetup?
-    private let fftSize = 1024
+    private let fftSize = 512  // Reduced for better performance
     private var fftSamples: [Float] = []
     private var fftMagnitudes: [Float] = []
+    private var audioFrameCounter = 0
 
     override init() {
         super.init()
@@ -55,7 +56,6 @@ class AudioManager: NSObject, ObservableObject {
 
     private func setupAudio() {
         #if targetEnvironment(simulator)
-        print("⚠️ AudioManager: Running in iOS Simulator - microphone functionality limited")
         #endif
 
         do {
@@ -63,13 +63,11 @@ class AudioManager: NSObject, ObservableObject {
             // Use video recording mode to be compatible with video recording, allow mixing
             try audioSession.setCategory(.playAndRecord, mode: .videoRecording, options: [.defaultToSpeaker, .allowBluetooth, .mixWithOthers, .allowAirPlay])
             try audioSession.setActive(true)
-            print("✅ AudioManager: Audio session configured for coexistence with recording")
 
             inputNode = audioEngine.inputNode
             let inputFormat = inputNode?.outputFormat(forBus: 0)
 
             guard let inputNode = inputNode, let inputFormat = inputFormat else {
-                print("Failed to get input node or format")
                 return
             }
 
@@ -84,7 +82,6 @@ class AudioManager: NSObject, ObservableObject {
             }
 
         } catch {
-            print("Audio setup failed: \(error)")
         }
     }
 
@@ -92,21 +89,28 @@ class AudioManager: NSObject, ObservableObject {
         guard let channelData = buffer.floatChannelData?[0] else { return }
         let frameCount = Int(buffer.frameLength)
 
-        // Copy audio data for FFT analysis
-        let sampleCount = min(frameCount, fftSize)
-        for i in 0..<sampleCount {
-            fftSamples[i] = channelData[i]
-        }
+        audioFrameCounter += 1
 
-        // Fill remaining with zeros if needed
-        if sampleCount < fftSize {
-            for i in sampleCount..<fftSize {
-                fftSamples[i] = 0.0
+        // Only do heavy FFT processing every 4th frame to improve performance
+        let shouldProcessFFT = audioFrameCounter % 4 == 0
+
+        if shouldProcessFFT {
+            // Copy audio data for FFT analysis
+            let sampleCount = min(frameCount, fftSize)
+            for i in 0..<sampleCount {
+                fftSamples[i] = channelData[i]
             }
-        }
 
-        // Perform FFT analysis
-        performFFTAnalysis()
+            // Fill remaining with zeros if needed
+            if sampleCount < fftSize {
+                for i in sampleCount..<fftSize {
+                    fftSamples[i] = 0.0
+                }
+            }
+
+            // Perform FFT analysis
+            performFFTAnalysis()
+        }
 
         // Calculate overall audio level (RMS)
         var rms: Float = 0.0
@@ -205,12 +209,9 @@ class AudioManager: NSObject, ObservableObject {
                     do {
                         try self?.audioEngine.start()
                         self?.isListening = true
-                        print("✅ AudioManager: Audio engine started")
                     } catch {
-                        print("❌ AudioManager: Failed to start audio engine: \(error)")
                     }
                 } else {
-                    print("❌ AudioManager: Microphone permission denied")
                 }
             }
         }
@@ -236,7 +237,6 @@ class AudioManager: NSObject, ObservableObject {
 
         // Use a simpler approach - create CMSampleBuffer with proper timing
         guard let channelData = buffer.floatChannelData?[0] else {
-            print("❌ No channel data in audio buffer")
             return
         }
 
@@ -270,7 +270,6 @@ class AudioManager: NSObject, ObservableObject {
         )
 
         guard formatStatus == noErr, let formatDescription = audioFormatDescription else {
-            print("❌ Failed to create audio format description: \(formatStatus)")
             return
         }
 
@@ -291,7 +290,6 @@ class AudioManager: NSObject, ObservableObject {
         )
 
         guard blockStatus == noErr, let block = blockBuffer else {
-            print("❌ Failed to create block buffer: \(blockStatus)")
             return
         }
 
@@ -304,7 +302,6 @@ class AudioManager: NSObject, ObservableObject {
         )
 
         guard copyStatus == noErr else {
-            print("❌ Failed to copy audio data: \(copyStatus)")
             return
         }
 
@@ -326,12 +323,10 @@ class AudioManager: NSObject, ObservableObject {
         )
 
         guard sampleStatus == noErr, let sample = sampleBuffer else {
-            print("❌ Failed to create sample buffer: \(sampleStatus)")
             return
         }
 
         // Send to recording delegate
         recordingDelegate.didReceiveAudioSampleBuffer(sample)
-        print("✅ Audio buffer converted and sent for recording")
     }
 }
