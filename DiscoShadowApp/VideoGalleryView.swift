@@ -13,6 +13,7 @@ struct VideoGalleryView: View {
     @State private var mediaURL: URL?
     @State private var selectedPhoto: UIImage?
     @State private var authorizationStatus: PHAuthorizationStatus = .notDetermined
+    @StateObject private var photoLibraryObserver = PhotoLibraryObserver()
 
     private let columns = [
         GridItem(.flexible()),
@@ -109,6 +110,16 @@ struct VideoGalleryView: View {
         .onAppear {
             checkPhotosPermission()
         }
+        .onChange(of: photoLibraryObserver.shouldRefresh) { shouldRefresh in
+            if shouldRefresh {
+                print("🔄 Refreshing gallery due to Photos library change")
+                photoLibraryObserver.shouldRefresh = false
+                // Add a small delay to ensure the new photo is fully saved
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    loadVideos()
+                }
+            }
+        }
         .fullScreenCover(isPresented: $showMediaViewer) {
             if let selectedAsset = selectedAsset {
                 if selectedAsset.mediaType == .video, let mediaURL = mediaURL {
@@ -151,6 +162,7 @@ struct VideoGalleryView: View {
     }
 
     private func loadVideos() {
+        print("🔄 Loading media assets from Photos library...")
         let fetchOptions = PHFetchOptions()
         fetchOptions.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
         // Fetch both photos and videos
@@ -166,9 +178,15 @@ struct VideoGalleryView: View {
         }
 
         DispatchQueue.main.async {
+            print("✅ Loaded \(allAssets.count) media assets")
             self.mediaAssets = allAssets
             self.isLoading = false
         }
+    }
+
+    func refreshGallery() {
+        print("🔄 Manual gallery refresh requested")
+        loadVideos()
     }
 
     private func loadVideoURL(for asset: PHAsset) {
@@ -245,12 +263,14 @@ struct VideoGalleryView: View {
     }
 
     private func loadPhotoURL(for asset: PHAsset) {
-        print("📸 Loading photo for asset: \(asset.localIdentifier)")
+        print("📸 Loading photo for asset: \(asset.localIdentifier) created: \(asset.creationDate?.description ?? "unknown")")
 
         let options = PHImageRequestOptions()
         options.version = .original
         options.deliveryMode = .highQualityFormat
         options.isNetworkAccessAllowed = true
+        options.isSynchronous = false
+        options.resizeMode = .exact
 
         // Request the image directly
         PHImageManager.default().requestImage(
@@ -261,14 +281,26 @@ struct VideoGalleryView: View {
         ) { image, info in
             DispatchQueue.main.async {
                 if let image = image {
-                    print("✅ Photo loaded successfully")
-                    self.selectedPhoto = image
-                    self.showMediaViewer = true
+                    // Check if this is a degraded version
+                    let isDegraded = info?[PHImageResultIsDegradedKey] as? Bool ?? false
+                    if !isDegraded {
+                        print("✅ High quality photo loaded successfully")
+                        self.selectedPhoto = image
+                        self.showMediaViewer = true
+                    } else {
+                        print("⏳ Received degraded photo, waiting for high quality...")
+                    }
                 } else if let error = info?[PHImageErrorKey] as? Error {
                     print("❌ Error loading photo: \(error)")
                 } else {
                     print("❌ Failed to get photo from asset")
                     print("📊 Photo info: \(String(describing: info))")
+
+                    // Check if photo is still being processed
+                    let isInCloud = info?[PHImageResultIsInCloudKey] as? Bool ?? false
+                    if isInCloud {
+                        print("☁️ Photo is in iCloud, may need time to download")
+                    }
                 }
             }
         }
@@ -604,6 +636,26 @@ struct ShareSheet: UIViewControllerRepresentable {
 
     func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {
         // No updates needed
+    }
+}
+
+class PhotoLibraryObserver: NSObject, ObservableObject, PHPhotoLibraryChangeObserver {
+    @Published var shouldRefresh = false
+
+    override init() {
+        super.init()
+        PHPhotoLibrary.shared().register(self)
+    }
+
+    deinit {
+        PHPhotoLibrary.shared().unregisterChangeObserver(self)
+    }
+
+    func photoLibraryDidChange(_ changeInstance: PHChange) {
+        DispatchQueue.main.async {
+            print("📸 Photo library changed, triggering refresh")
+            self.shouldRefresh = true
+        }
     }
 }
 
