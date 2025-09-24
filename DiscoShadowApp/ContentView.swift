@@ -59,13 +59,13 @@ struct ContentView: View {
         }
     }
 
-    // Video thumbnail preview (placeholder for now)
-    var videoThumbnail: some View {
+    // Media thumbnail preview (placeholder for now)
+    var mediaThumbnail: some View {
         RoundedRectangle(cornerRadius: 10)
             .frame(width: 60, height: 60, alignment: .center)
             .foregroundColor(.gray.opacity(0.3))
             .overlay(
-                Image(systemName: "video.fill")
+                Image(systemName: captureMode == .photo ? "photo.fill" : "video.fill")
                     .foregroundColor(.white)
                     .font(.title3)
             )
@@ -159,7 +159,7 @@ struct ContentView: View {
                             Button(action: {
                                 showVideoGallery = true
                             }) {
-                                videoThumbnail
+                                mediaThumbnail
                             }
 
                             Spacer()

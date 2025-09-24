@@ -6,11 +6,11 @@ import Combine
 
 struct VideoGalleryView: View {
     @Environment(\.dismiss) private var dismiss
-    @State private var videos: [PHAsset] = []
+    @State private var mediaAssets: [PHAsset] = []
     @State private var isLoading = true
-    @State private var selectedVideo: PHAsset?
-    @State private var showVideoPlayer = false
-    @State private var videoURL: URL?
+    @State private var selectedAsset: PHAsset?
+    @State private var showMediaViewer = false
+    @State private var mediaURL: URL?
     @State private var authorizationStatus: PHAuthorizationStatus = .notDetermined
 
     private let columns = [
@@ -60,18 +60,18 @@ struct VideoGalleryView: View {
                             .foregroundColor(.white)
                             .padding(.top)
                     }
-                } else if videos.isEmpty {
+                } else if mediaAssets.isEmpty {
                     VStack(spacing: 20) {
-                        Image(systemName: "video.slash")
+                        Image(systemName: "photo.on.rectangle.angled")
                             .font(.system(size: 60))
                             .foregroundColor(.white.opacity(0.6))
 
-                        Text("No DiscoShadow Videos")
+                        Text("No DiscoShadow Media")
                             .font(.title2)
                             .fontWeight(.bold)
                             .foregroundColor(.white)
 
-                        Text("Record some psychedelic videos to see them here!")
+                        Text("Capture some psychedelic photos and videos to see them here!")
                             .font(.body)
                             .foregroundColor(.white.opacity(0.8))
                             .multilineTextAlignment(.center)
@@ -79,10 +79,14 @@ struct VideoGalleryView: View {
                 } else {
                     ScrollView {
                         LazyVGrid(columns: columns, spacing: 10) {
-                            ForEach(videos, id: \.localIdentifier) { video in
-                                VideoThumbnailView(asset: video) {
-                                    selectedVideo = video
-                                    loadVideoURL(for: video)
+                            ForEach(mediaAssets, id: \.localIdentifier) { asset in
+                                MediaThumbnailView(asset: asset) {
+                                    selectedAsset = asset
+                                    if asset.mediaType == .video {
+                                        loadVideoURL(for: asset)
+                                    } else {
+                                        loadPhotoURL(for: asset)
+                                    }
                                 }
                             }
                         }
@@ -90,7 +94,7 @@ struct VideoGalleryView: View {
                     }
                 }
             }
-            .navigationTitle("DiscoShadow Videos")
+            .navigationTitle("DiscoShadow Gallery")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
@@ -104,11 +108,18 @@ struct VideoGalleryView: View {
         .onAppear {
             checkPhotosPermission()
         }
-        .fullScreenCover(isPresented: $showVideoPlayer) {
-            if let videoURL = videoURL {
-                VideoPlayerView(videoURL: videoURL) {
-                    showVideoPlayer = false
-                    self.videoURL = nil
+        .fullScreenCover(isPresented: $showMediaViewer) {
+            if let mediaURL = mediaURL, let selectedAsset = selectedAsset {
+                if selectedAsset.mediaType == .video {
+                    VideoPlayerView(videoURL: mediaURL) {
+                        showMediaViewer = false
+                        self.mediaURL = nil
+                    }
+                } else {
+                    PhotoViewerView(photoURL: mediaURL) {
+                        showMediaViewer = false
+                        self.mediaURL = nil
+                    }
                 }
             }
         }
@@ -141,17 +152,20 @@ struct VideoGalleryView: View {
     private func loadVideos() {
         let fetchOptions = PHFetchOptions()
         fetchOptions.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
-        fetchOptions.predicate = NSPredicate(format: "mediaType == %d", PHAssetMediaType.video.rawValue)
+        // Fetch both photos and videos
+        fetchOptions.predicate = NSPredicate(format: "mediaType == %d OR mediaType == %d",
+                                           PHAssetMediaType.video.rawValue,
+                                           PHAssetMediaType.image.rawValue)
 
         let assets = PHAsset.fetchAssets(with: fetchOptions)
-        var videoAssets: [PHAsset] = []
+        var allAssets: [PHAsset] = []
 
         assets.enumerateObjects { asset, _, _ in
-            videoAssets.append(asset)
+            allAssets.append(asset)
         }
 
         DispatchQueue.main.async {
-            self.videos = videoAssets
+            self.mediaAssets = allAssets
             self.isLoading = false
         }
     }
@@ -188,8 +202,8 @@ struct VideoGalleryView: View {
                     switch exportSession.status {
                     case .completed:
                         print("✅ Video exported successfully to: \(tempURL)")
-                        self.videoURL = tempURL
-                        self.showVideoPlayer = true
+                        self.mediaURL = tempURL
+                        self.showMediaViewer = true
                     case .failed:
                         print("❌ Export failed: \(String(describing: exportSession.error))")
                         // Fallback to direct URL approach
@@ -216,8 +230,8 @@ struct VideoGalleryView: View {
             DispatchQueue.main.async {
                 if let urlAsset = avAsset as? AVURLAsset {
                     print("✅ Got direct video URL: \(urlAsset.url)")
-                    self.videoURL = urlAsset.url
-                    self.showVideoPlayer = true
+                    self.mediaURL = urlAsset.url
+                    self.showMediaViewer = true
                 } else if let error = info?[PHImageErrorKey] as? Error {
                     print("❌ Error loading video: \(error)")
                 } else {
@@ -228,9 +242,41 @@ struct VideoGalleryView: View {
             }
         }
     }
+
+    private func loadPhotoURL(for asset: PHAsset) {
+        print("📸 Loading photo for asset: \(asset.localIdentifier)")
+
+        let options = PHImageRequestOptions()
+        options.version = .original
+        options.deliveryMode = .highQualityFormat
+        options.isNetworkAccessAllowed = true
+
+        // Create temporary file URL for photo
+        let tempDir = FileManager.default.temporaryDirectory
+        let tempURL = tempDir.appendingPathComponent("temp_photo_\(UUID().uuidString).jpg")
+
+        PHImageManager.default().requestImageDataAndOrientation(for: asset, options: options) { imageData, _, _, info in
+            DispatchQueue.main.async {
+                if let imageData = imageData {
+                    do {
+                        try imageData.write(to: tempURL)
+                        print("✅ Photo exported successfully to: \(tempURL)")
+                        self.mediaURL = tempURL
+                        self.showMediaViewer = true
+                    } catch {
+                        print("❌ Failed to write photo data: \(error)")
+                    }
+                } else if let error = info?[PHImageErrorKey] as? Error {
+                    print("❌ Error loading photo: \(error)")
+                } else {
+                    print("❌ Failed to get photo data from asset")
+                }
+            }
+        }
+    }
 }
 
-struct VideoThumbnailView: View {
+struct MediaThumbnailView: View {
     let asset: PHAsset
     let onTap: () -> Void
     @State private var thumbnail: UIImage?
@@ -259,31 +305,34 @@ struct VideoThumbnailView: View {
                             )
                     }
 
-                    VStack {
-                        Spacer()
-                        HStack {
+                    // Show play icon only for videos
+                    if asset.mediaType == .video {
+                        VStack {
                             Spacer()
-                            Image(systemName: "play.circle.fill")
-                                .font(.title2)
-                                .foregroundColor(.white)
-                                .shadow(radius: 3)
+                            HStack {
+                                Spacer()
+                                Image(systemName: "play.circle.fill")
+                                    .font(.title2)
+                                    .foregroundColor(.white)
+                                    .shadow(radius: 3)
+                                Spacer()
+                            }
                             Spacer()
                         }
-                        Spacer()
-                    }
 
-                    VStack {
-                        Spacer()
-                        HStack {
-                            Text(formatDuration(asset.duration))
-                                .font(.caption)
-                                .foregroundColor(.white)
-                                .padding(4)
-                                .background(Color.black.opacity(0.7))
-                                .cornerRadius(4)
+                        VStack {
                             Spacer()
+                            HStack {
+                                Text(formatDuration(asset.duration))
+                                    .font(.caption)
+                                    .foregroundColor(.white)
+                                    .padding(4)
+                                    .background(Color.black.opacity(0.7))
+                                    .cornerRadius(4)
+                                Spacer()
+                            }
+                            .padding(6)
                         }
-                        .padding(6)
                     }
                 }
             }
@@ -508,6 +557,43 @@ struct VideoPlayerView: View {
         playerReady = false
         NotificationCenter.default.removeObserver(self, name: .AVPlayerItemDidPlayToEndTime, object: nil)
         NotificationCenter.default.removeObserver(self, name: .AVPlayerItemFailedToPlayToEndTime, object: nil)
+    }
+}
+
+struct PhotoViewerView: View {
+    let photoURL: URL
+    let onDismiss: () -> Void
+
+    var body: some View {
+        ZStack {
+            Color.black.ignoresSafeArea()
+
+            AsyncImage(url: photoURL) { image in
+                image
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .ignoresSafeArea()
+            } placeholder: {
+                ProgressView()
+                    .scaleEffect(1.5)
+                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
+            }
+
+            VStack {
+                HStack {
+                    Spacer()
+                    Button("Done") {
+                        onDismiss()
+                    }
+                    .foregroundColor(.white)
+                    .padding()
+                    .background(Color.black.opacity(0.6))
+                    .cornerRadius(8)
+                }
+                .padding()
+                Spacer()
+            }
+        }
     }
 }
 
