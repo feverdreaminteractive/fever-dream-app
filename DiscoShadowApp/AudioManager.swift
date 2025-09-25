@@ -118,6 +118,11 @@ class AudioManager: NSObject, ObservableObject {
 
         DispatchQueue.main.async {
             self.audioLevel = min(rms * 10.0, 1.0) // Scale and clamp
+
+            // Debug audio every 120 frames (about every 2 seconds at 60fps)
+            if self.audioFrameCounter % 120 == 0 {
+                print("🎵 AudioManager: RMS=\(rms), Level=\(self.audioLevel), Bass=\(self.bassLevel), Mid=\(self.midLevel), Treble=\(self.trebleLevel)")
+            }
         }
     }
 
@@ -201,17 +206,25 @@ class AudioManager: NSObject, ObservableObject {
     }
 
     func startListening() {
-        guard !audioEngine.isRunning else { return }
+        guard !audioEngine.isRunning else {
+            print("🎵 AudioManager: Already running")
+            return
+        }
 
+        print("🎵 AudioManager: Requesting microphone permission...")
         AVAudioSession.sharedInstance().requestRecordPermission { [weak self] granted in
             DispatchQueue.main.async {
                 if granted {
+                    print("🎵 AudioManager: Permission granted, starting audio engine...")
                     do {
                         try self?.audioEngine.start()
                         self?.isListening = true
+                        print("🎵 AudioManager: Audio engine started successfully!")
                     } catch {
+                        print("🎵 AudioManager: Failed to start audio engine: \(error)")
                     }
                 } else {
+                    print("🎵 AudioManager: Microphone permission denied")
                 }
             }
         }

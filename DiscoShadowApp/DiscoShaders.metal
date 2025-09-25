@@ -75,7 +75,7 @@ kernel void discoShadowEffect(texture2d<float, access::read> inputTexture [[text
     float3 chromaticColor = baseColor.rgb;
 
     // Only apply chromatic aberration if there's audio input - Enhanced with more movement
-    if (uniforms.audioLevel > 0.01) {
+    if (uniforms.audioLevel > 0.001) {
         float aberrationAmount = 0.025 * (uniforms.audioLevel * 4.0 + uniforms.bassLevel * 3.0);
 
         // Add more dynamic movement patterns based on audio frequencies
@@ -119,7 +119,7 @@ kernel void discoShadowEffect(texture2d<float, access::read> inputTexture [[text
     // Add beat-reactive color intensity boosts to the existing chromatic colors
     float3 enhancedChromaticColor = chromaticColor;
 
-    if (uniforms.audioLevel > 0.01) {
+    if (uniforms.audioLevel > 0.001) {
         // Convert to polar coordinates for additional effects
         float angle = atan2(centeredUV.y, centeredUV.x);
         float radius = length(centeredUV);
@@ -752,34 +752,34 @@ kernel void gridRoomEffect(texture2d<float, access::read> inputTexture [[texture
     // Combine base color with HSV color
     float3 pattern_color = base_color * hsv_color;
 
-    // Audio-reactive intensity and pulsing
-    float intensity = 1.0 + sin(time * 4.0) * audioReactivity * 0.4;
+    // Audio-reactive intensity and pulsing - smoother pulsing
+    float intensity = 1.0 + sin(time * 2.0) * audioReactivity * 0.3;
     pattern_color *= intensity;
 
-    // Pattern strength for blending - stronger at edges for better following
-    float pattern_strength = 0.85 + audioReactivity * 0.4 + edge_strength * 0.3;
+    // Pattern strength for blending - smoother transitions
+    float pattern_strength = 0.85 + audioReactivity * 0.3 + smoothstep(0.0, 1.0, edge_strength) * 0.2;
 
     // === ENHANCED AUDIO-REACTIVE CHROMATIC ABERRATIONS ===
     // Multi-layered aberration with different frequency responses
     float base_aberration = audioReactivity * uniforms.chromaticAberration * 25.0;
 
-    // Bass creates large horizontal shifts (like vinyl warping)
+    // Bass creates large horizontal shifts (like vinyl warping) - smoother motion
     float2 bass_offset = float2(
-        sin(time * 2.0 + uniforms.bassLevel * 8.0) * uniforms.bassLevel * 0.08,
-        cos(time * 1.5 + uniforms.bassLevel * 6.0) * uniforms.bassLevel * 0.04
+        sin(time * 1.2 + uniforms.bassLevel * 6.0) * uniforms.bassLevel * 0.08,
+        cos(time * 0.8 + uniforms.bassLevel * 4.0) * uniforms.bassLevel * 0.04
     );
 
-    // Mids create circular/orbital motion
-    float mid_angle = time * 4.0 + uniforms.midLevel * 12.0;
+    // Mids create circular/orbital motion - gentler rotation
+    float mid_angle = time * 2.5 + uniforms.midLevel * 8.0;
     float2 mid_offset = float2(
         cos(mid_angle) * uniforms.midLevel * 0.06,
         sin(mid_angle) * uniforms.midLevel * 0.06
     );
 
-    // Treble creates rapid jittery movements
+    // Treble creates subtle shimmer movements - much smoother
     float2 treble_offset = float2(
-        sin(time * 15.0 + r * 20.0) * uniforms.trebleLevel * 0.04,
-        cos(time * 18.0 + r * 25.0) * uniforms.trebleLevel * 0.03
+        sin(time * 6.0 + r * 8.0) * uniforms.trebleLevel * 0.04,
+        cos(time * 7.0 + r * 10.0) * uniforms.trebleLevel * 0.03
     );
 
     // Different offsets for each color channel with frequency-specific movement
@@ -831,10 +831,10 @@ kernel void gridRoomEffect(texture2d<float, access::read> inputTexture [[texture
     float3 base_green = float3(1.0) - float3(exp(r_green) - 1.1);
     float3 base_blue = float3(1.0) - float3(exp(r_blue) - 1.1);
 
-    // Enhanced audio-reactive HSV for each channel with expanded hue range
-    float hue_red = 0.0 + r_red * (6.0 + uniforms.bassLevel * 8.0) + time * 0.5 + sin(uniforms.bassLevel * 15.0) * 0.4;
-    float hue_green = 0.33 + r_green * (7.0 + uniforms.midLevel * 6.0) + time * 0.4 + cos(uniforms.midLevel * 12.0) * 0.35;
-    float hue_blue = 0.66 + r_blue * (8.0 + uniforms.trebleLevel * 7.0) + time * 0.3 + sin(uniforms.trebleLevel * 18.0) * 0.45;
+    // Enhanced audio-reactive HSV for each channel with expanded hue range - smoother transitions
+    float hue_red = 0.0 + r_red * (6.0 + uniforms.bassLevel * 8.0) + time * 0.5 + sin(uniforms.bassLevel * 8.0 + time * 2.0) * 0.4;
+    float hue_green = 0.33 + r_green * (7.0 + uniforms.midLevel * 6.0) + time * 0.4 + cos(uniforms.midLevel * 6.0 + time * 1.5) * 0.35;
+    float hue_blue = 0.66 + r_blue * (8.0 + uniforms.trebleLevel * 7.0) + time * 0.3 + sin(uniforms.trebleLevel * 10.0 + time * 1.8) * 0.45;
 
     // Enhanced saturation and brightness modulation
     float sat_red = 1.0 + sin(time * 3.0 + r_red * 8.0) * uniforms.bassLevel * 0.3;
@@ -890,8 +890,11 @@ kernel void gridRoomEffect(texture2d<float, access::read> inputTexture [[texture
     edge_direction = normalize(float2(dot(grad_x, float3(0.299, 0.587, 0.114)),
                                     dot(grad_y, float3(0.299, 0.587, 0.114))));
 
-    // Smooth edge strength to avoid harsh transitions
-    edge_strength = smoothstep(0.1, 0.5, edge_strength);
+    // Smooth edge strength to avoid harsh transitions - more gradual
+    edge_strength = smoothstep(0.05, 0.8, edge_strength);
+
+    // Temporal smoothing of edge strength to reduce flicker
+    edge_strength = mix(edge_strength, sin(time * 1.5) * 0.1 + 0.9, 0.1);
 
     // === EDGE-GUIDED OP-ART PATTERN MODULATION ===
     // Modify Op-Art parameters based on detected edges
@@ -910,20 +913,20 @@ kernel void gridRoomEffect(texture2d<float, access::read> inputTexture [[texture
     float wave_layer2 = sin(uv.x * (12.0 + uniforms.midLevel * 6.0) + A * 1.3 + time * 1.5) *
                         cos(uv.y * (8.0 + uniforms.bassLevel * 3.0) + B * 0.8 + time * 0.7);
 
-    // Layer 3: Frequency modulation waves
-    float freq_mod = 3.0 + sin(time * 0.5) * 2.0 + audioReactivity * 4.0;
-    float wave_layer3 = cos(uv.x * freq_mod + sin(uv.y * freq_mod * 1.2) + A * 0.6) +
-                        sin(uv.y * freq_mod * 0.9 + cos(uv.x * freq_mod * 1.1) + B * 1.2);
+    // Layer 3: Frequency modulation waves - smoother frequency changes
+    float freq_mod = 3.0 + sin(time * 0.3) * 1.5 + audioReactivity * 3.0;
+    float wave_layer3 = cos(uv.x * freq_mod + sin(uv.y * freq_mod * 1.1) + A * 0.6) +
+                        sin(uv.y * freq_mod * 0.9 + cos(uv.x * freq_mod * 1.05) + B * 1.2);
 
-    // Layer 4: Spiral patterns
-    float wave_layer4 = sin(spiral_angle * (8.0 + uniforms.trebleLevel * 6.0) +
-                           spiral_radius * (20.0 + uniforms.bassLevel * 10.0) + C);
+    // Layer 4: Spiral patterns - gentler spiral motion
+    float wave_layer4 = sin(spiral_angle * (6.0 + uniforms.trebleLevel * 4.0) +
+                           spiral_radius * (15.0 + uniforms.bassLevel * 6.0) + C);
 
-    // Layer 5: Moiré interference patterns
-    float moire_freq1 = 15.0 + uniforms.bassLevel * 8.0;
-    float moire_freq2 = 16.0 + uniforms.trebleLevel * 9.0;
-    float wave_layer5 = (sin(uv.x * moire_freq1 + time * 2.0) * sin(uv.y * moire_freq1 + A)) +
-                        (cos(uv.x * moire_freq2 + time * 1.3) * cos(uv.y * moire_freq2 + B));
+    // Layer 5: Moiré interference patterns - reduced frequency jumps
+    float moire_freq1 = 12.0 + uniforms.bassLevel * 5.0;
+    float moire_freq2 = 13.0 + uniforms.trebleLevel * 6.0;
+    float wave_layer5 = (sin(uv.x * moire_freq1 + time * 1.2) * sin(uv.y * moire_freq1 + A)) +
+                        (cos(uv.x * moire_freq2 + time * 0.8) * cos(uv.y * moire_freq2 + B));
 
     // Combine all wave layers with edge-enhanced weights
     float combined_waves = (wave_layer1 * (1.0 + edge_strength * 0.5)) +

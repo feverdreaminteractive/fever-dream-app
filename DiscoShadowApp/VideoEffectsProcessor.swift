@@ -113,8 +113,10 @@ class VideoEffectsProcessor: NSObject {
     }
 
     private func setupAudioManager() {
+        print("🎵 VideoEffectsProcessor: Setting up AudioManager...")
         audioManager = AudioManager()
         audioManager?.startListening()
+        print("🎵 VideoEffectsProcessor: AudioManager setup complete")
     }
 
     private func setupTextureCache() {
@@ -130,7 +132,12 @@ class VideoEffectsProcessor: NSObject {
         let audioParams = audioManager?.getAudioParameters() ?? (0.0, 0.0, 0.0, 0.0)
         let totalAudio = audioParams.0 + audioParams.1 + audioParams.2 + audioParams.3
 
-        // Audio threshold check (no logging)
+        // Debug audio values every 60 frames
+        if frameCount % 60 == 0 {
+            print("🎵 Audio Debug - Level: \(audioParams.0), Bass: \(audioParams.1), Mid: \(audioParams.2), Treble: \(audioParams.3), Total: \(totalAudio)")
+        }
+
+        // Audio threshold check
         let audioThreshold: Float = 0.01
         let audioBasedIntensity = totalAudio > audioThreshold ? intensity : intensity * 0.5
 
