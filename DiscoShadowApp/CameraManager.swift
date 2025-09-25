@@ -30,6 +30,15 @@ class CameraManager: NSObject, ObservableObject, RecordingAudioDelegate, AVCaptu
 
     let effectsProcessor = VideoEffectsProcessor()
 
+    // Premium effects support
+    func setSelectedEffect(_ effect: PremiumEffect?) {
+        print("📷 CameraManager: Setting effect to: \(effect?.rawValue ?? "nil")")
+        effectsProcessor.selectedEffect = effect
+    }
+
+    func setStoreManager(_ storeManager: StoreManager) {
+        effectsProcessor.storeManager = storeManager
+    }
 
     // Recording components
     private var assetWriter: AVAssetWriter?

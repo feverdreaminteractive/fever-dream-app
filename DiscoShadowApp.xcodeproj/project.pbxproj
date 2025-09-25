@@ -15,6 +15,8 @@
 		DiscoShadowApp_swift /* DiscoShadowApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = DiscoShadowApp_swift_ref /* DiscoShadowApp.swift */; };
 		MetalRenderer_swift /* MetalRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = MetalRenderer_swift_ref /* MetalRenderer.swift */; };
 		VideoGalleryView_swift /* VideoGalleryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = VideoGalleryView_swift_ref /* VideoGalleryView.swift */; };
+		StoreManager_swift /* StoreManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = StoreManager_swift_ref /* StoreManager.swift */; };
+		PremiumMenuView_swift /* PremiumMenuView.swift in Sources */ = {isa = PBXBuildFile; fileRef = PremiumMenuView_swift_ref /* PremiumMenuView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -28,6 +30,8 @@
 		MetalRenderer_swift_ref /* MetalRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalRenderer.swift; sourceTree = "<group>"; };
 		VideoEffectsProcessor_swift_ref /* VideoEffectsProcessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoEffectsProcessor.swift; sourceTree = "<group>"; };
 		VideoGalleryView_swift_ref /* VideoGalleryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoGalleryView.swift; sourceTree = "<group>"; };
+		StoreManager_swift_ref /* StoreManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoreManager.swift; sourceTree = "<group>"; };
+		PremiumMenuView_swift_ref /* PremiumMenuView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PremiumMenuView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -51,6 +55,8 @@
 				VideoEffectsProcessor_swift_ref /* VideoEffectsProcessor.swift */,
 				MetalRenderer_swift_ref /* MetalRenderer.swift */,
 				VideoGalleryView_swift_ref /* VideoGalleryView.swift */,
+				StoreManager_swift_ref /* StoreManager.swift */,
+				PremiumMenuView_swift_ref /* PremiumMenuView.swift */,
 				DiscoShaders_metal_ref /* DiscoShaders.metal */,
 				Info_plist /* Info.plist */,
 			);
@@ -137,6 +143,8 @@
 				AudioManager_swift /* AudioManager.swift in Sources */,
 				MetalRenderer_swift /* MetalRenderer.swift in Sources */,
 				VideoGalleryView_swift /* VideoGalleryView.swift in Sources */,
+				StoreManager_swift /* StoreManager.swift in Sources */,
+				PremiumMenuView_swift /* PremiumMenuView.swift in Sources */,
 				DiscoShaders_metal /* DiscoShaders.metal in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

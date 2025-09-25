@@ -10,6 +10,11 @@ struct ContentView: View {
     @State private var showVideoGallery = false
     @State private var currentZoomFactor: CGFloat = 1.0
     @State private var captureMode: CaptureMode = .video
+    @State private var isAppReady = false
+    @State private var showPremiumMenu = false
+    @StateObject private var storeManager = StoreManager()
+    @State private var selectedEffect: PremiumEffect? = nil
+    @State private var showEffectSelector = false
 
     enum CaptureMode: String, CaseIterable {
         case photo = "PHOTO"
@@ -90,7 +95,18 @@ struct ContentView: View {
 
     var body: some View {
         ZStack {
-            GeometryReader { reader in
+            if !isAppReady {
+                LoadingScreenView()
+                    .onAppear {
+                        // Simulate app initialization time
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                            withAnimation(.easeInOut(duration: 0.8)) {
+                                isAppReady = true
+                            }
+                        }
+                    }
+            } else {
+                GeometryReader { reader in
                 ZStack {
                     Color.black.edgesIgnoringSafeArea(.all)
 
@@ -98,7 +114,7 @@ struct ContentView: View {
                         // Simple top bar with app title and menu
                         HStack {
                             Text("FΣVΣЯ DЯΣΛM")
-                                .font(.system(size: 20, weight: .bold, design: .rounded))
+                                .font(.system(size: 18, weight: .medium, design: .monospaced))
                                 .foregroundColor(.white)
 
                             Spacer()
@@ -145,14 +161,39 @@ struct ContentView: View {
                                     }
                                 }) {
                                     Text(mode.rawValue)
-                                        .font(.system(size: 16, weight: captureMode == mode ? .bold : .medium))
-                                        .foregroundColor(captureMode == mode ? .yellow : .white.opacity(0.7))
-                                        .scaleEffect(captureMode == mode ? 1.1 : 1.0)
+                                        .font(.system(size: 14, weight: captureMode == mode ? .medium : .regular, design: .monospaced))
+                                        .foregroundColor(captureMode == mode ? .white : .white.opacity(0.5))
                                 }
                                 .disabled(cameraManager.isRecording)
                             }
                         }
                         .padding(.vertical, 10)
+
+                        // Effects selector
+                        HStack {
+                            Button(action: {
+                                print("🎨 Effects button tapped!")
+                                showEffectSelector.toggle()
+                            }) {
+                                HStack(spacing: 8) {
+                                    Image(systemName: selectedEffect == nil ? "wand.and.stars" : selectedEffect!.iconName)
+                                        .font(.system(size: 16))
+                                    Text(selectedEffect?.name ?? "DISCO SHADOW")
+                                        .font(.system(size: 12, weight: .medium, design: .monospaced))
+                                }
+                                .foregroundColor(selectedEffect == nil ? .white : .yellow)
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 8)
+                                .background(Color.black.opacity(0.3))
+                                .cornerRadius(20)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 20)
+                                        .stroke(selectedEffect == nil ? Color.white.opacity(0.3) : Color.yellow.opacity(0.6), lineWidth: 1)
+                                )
+                            }
+                            .disabled(cameraManager.isRecording)
+                        }
+                        .padding(.vertical, 5)
 
                         // Professional camera controls at bottom
                         HStack {
@@ -190,6 +231,10 @@ struct ContentView: View {
                                 showVideoGallery = true
                                 showMenu = false
                             })
+                            MenuButton(icon: "crown.fill", title: storeManager.hasSubscription ? "Premium Effects" : "Go Premium", action: {
+                                showPremiumMenu = true
+                                showMenu = false
+                            })
 
                             MenuButton(icon: "gearshape", title: "Settings", action: {
                                 // TODO: Open Settings
@@ -225,10 +270,15 @@ struct ContentView: View {
                         showMenu = false
                     }
                 }
+                }
             }
         }
         .onAppear {
             cameraManager.startSession()
+            cameraManager.setStoreManager(storeManager)
+        }
+        .onChange(of: selectedEffect) { newEffect in
+            cameraManager.setSelectedEffect(newEffect)
         }
         .onDisappear {
             cameraManager.stopSession()
@@ -243,6 +293,13 @@ struct ContentView: View {
         }
         .sheet(isPresented: $showVideoGallery) {
             VideoGalleryView()
+        }
+        .sheet(isPresented: $showPremiumMenu) {
+            PremiumMenuView()
+                .environmentObject(storeManager)
+        }
+        .sheet(isPresented: $showEffectSelector) {
+            EffectsSelectorView(selectedEffect: $selectedEffect, storeManager: storeManager)
         }
     }
 }
@@ -336,7 +393,6 @@ class CameraPreviewUIView: UIView, AVCaptureVideoDataOutputSampleBufferDelegate 
         }
 
         // Set up video data output for effects processing and recording
-        print("🔗 Setting camera video delegate to self")
         cameraManager.videoDataOutputDelegate = self
     }
 
@@ -411,6 +467,176 @@ struct MenuButton: View {
     }
 }
 
+struct LoadingScreenView: View {
+    var body: some View {
+        ZStack {
+            // Black background
+            Color.black.ignoresSafeArea()
+
+            VStack(spacing: 20) {
+                // App title
+                Text("FΣVΣЯ DЯΣΛM")
+                    .font(.system(size: 48, weight: .black, design: .rounded))
+                    .foregroundColor(.white)
+
+                // Loading text
+                Text("Loading")
+                    .font(.system(size: 18, weight: .medium))
+                    .foregroundColor(.white)
+            }
+        }
+    }
+}
+
+struct EffectsSelectorView: View {
+    @Binding var selectedEffect: PremiumEffect?
+    let storeManager: StoreManager
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationView {
+            ZStack {
+                Color.black.ignoresSafeArea()
+
+                ScrollView {
+                    VStack(spacing: 20) {
+                        // Header
+                        VStack(spacing: 10) {
+                            Text("VISUAL EFFECTS")
+                                .font(.system(size: 24, weight: .bold, design: .rounded))
+                                .foregroundColor(.white)
+
+                            Text("Choose your visual style")
+                                .font(.system(size: 16))
+                                .foregroundColor(.white.opacity(0.7))
+                        }
+                        .padding(.top, 20)
+
+                        // Default effect
+                        EffectOptionView(
+                            name: "DISCO SHADOW",
+                            description: "Classic retro vibes with audio-reactive colors",
+                            iconName: "wand.and.stars",
+                            gradientColors: [.purple, .pink, .blue],
+                            isSelected: selectedEffect == nil,
+                            isOwned: true,
+                            action: {
+                                selectedEffect = nil
+                                dismiss()
+                            }
+                        )
+
+                        // Premium effects
+                        ForEach(PremiumEffect.allCases) { effect in
+                            EffectOptionView(
+                                name: effect.name,
+                                description: effect.description,
+                                iconName: effect.iconName,
+                                gradientColors: effect.gradientColors,
+                                isSelected: selectedEffect == effect,
+                                isOwned: true, // Temporarily bypass ownership check
+                                action: {
+                                    print("🎯 Effect selected: \(effect.name)")
+                                    // Temporarily bypass ownership check for testing
+                                    selectedEffect = effect
+                                    dismiss()
+                                }
+                            )
+                        }
+                    }
+                    .padding()
+                }
+            }
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") {
+                        dismiss()
+                    }
+                    .foregroundColor(.white)
+                }
+            }
+        }
+    }
+}
+
+struct EffectOptionView: View {
+    let name: String
+    let description: String
+    let iconName: String
+    let gradientColors: [Color]
+    let isSelected: Bool
+    let isOwned: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 15) {
+                // Effect icon with gradient
+                ZStack {
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(
+                            LinearGradient(
+                                colors: gradientColors,
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: 50, height: 50)
+
+                    if isOwned {
+                        Image(systemName: iconName)
+                            .font(.system(size: 20))
+                            .foregroundColor(.white)
+                    } else {
+                        Image(systemName: "lock.fill")
+                            .font(.system(size: 16))
+                            .foregroundColor(.white)
+                    }
+
+                    if isSelected {
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(Color.yellow, lineWidth: 2)
+                            .frame(width: 50, height: 50)
+                    }
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(name)
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(.white)
+
+                    Text(description)
+                        .font(.system(size: 12))
+                        .foregroundColor(.white.opacity(0.7))
+                        .multilineTextAlignment(.leading)
+                }
+
+                Spacer()
+
+                if !isOwned {
+                    Image(systemName: "crown.fill")
+                        .foregroundColor(.yellow)
+                        .font(.system(size: 16))
+                }
+
+                if isSelected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundColor(.green)
+                        .font(.system(size: 20))
+                }
+            }
+            .padding()
+            .background(Color.white.opacity(isSelected ? 0.1 : 0.05))
+            .cornerRadius(16)
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(isSelected ? Color.yellow.opacity(0.5) : Color.clear, lineWidth: 1)
+            )
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+}
 
 #Preview {
     ContentView()

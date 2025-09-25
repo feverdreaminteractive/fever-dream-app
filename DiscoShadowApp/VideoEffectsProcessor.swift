@@ -21,6 +21,21 @@ class VideoEffectsProcessor: NSObject {
     // Audio manager for audio-reactive effects
     var audioManager: AudioManager?
 
+    // Current selected effect
+    var selectedEffect: PremiumEffect? {
+        didSet {
+            print("🎯 VideoEffectsProcessor: Selected effect changed to: \(selectedEffect?.rawValue ?? "nil")")
+            metalRenderer?.activePremiumEffect = selectedEffect
+        }
+    }
+
+    // Store manager for premium effects
+    var storeManager: StoreManager? {
+        didSet {
+            metalRenderer?.storeManager = storeManager
+        }
+    }
+
     private let context = CIContext(options: [.workingColorSpace: CGColorSpace(name: CGColorSpace.sRGB)!,
                                               .cacheIntermediates: false])
     private var time: Float = 0.0
@@ -93,6 +108,8 @@ class VideoEffectsProcessor: NSObject {
 
     private func setupMetalRenderer() {
         metalRenderer = MetalRenderer()
+        metalRenderer?.activePremiumEffect = selectedEffect
+        metalRenderer?.storeManager = storeManager
     }
 
     private func setupAudioManager() {
