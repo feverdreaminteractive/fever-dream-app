@@ -252,7 +252,7 @@ struct MediaFileThumbnailView: View {
                             Spacer()
                             HStack {
                                 Spacer()
-                                Image(systemName: "play.circle.fill")
+                                 Image(systemName: "play.circle.fill")
                                     .font(.title2)
                                     .foregroundColor(.white)
                                     .shadow(radius: 3)

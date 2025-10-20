@@ -220,7 +220,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = DiscoShadowApp/Info.plist;
-				INFOPLIST_KEY_NSCameraUsageDescription = "This app uses the camera to create disco shadow effects.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "This app uses the camera to create fever dream effects.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -297,7 +297,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = DiscoShadowApp/Info.plist;
-				INFOPLIST_KEY_NSCameraUsageDescription = "This app uses the camera to create disco shadow effects.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "This app uses the camera to create fever dream effects.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;

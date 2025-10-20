@@ -56,6 +56,9 @@ class AudioManager: NSObject, ObservableObject {
 
     private func setupAudio() {
         #if targetEnvironment(simulator)
+        // Skip audio setup on simulator to prevent crashes
+        print("🎵 AudioManager: Skipping audio setup on simulator")
+        return
         #endif
 
         do {
@@ -64,6 +67,12 @@ class AudioManager: NSObject, ObservableObject {
             try audioSession.setCategory(.playAndRecord, mode: .videoRecording, options: [.defaultToSpeaker, .allowBluetooth, .mixWithOthers, .allowAirPlay])
             try audioSession.setActive(true)
 
+            // Add safety check before accessing inputNode
+            guard audioEngine.inputNode.outputFormat(forBus: 0).sampleRate > 0 else {
+                print("🎵 AudioManager: Invalid audio input format, skipping audio setup")
+                return
+            }
+
             inputNode = audioEngine.inputNode
             let inputFormat = inputNode?.outputFormat(forBus: 0)
 
@@ -71,17 +80,24 @@ class AudioManager: NSObject, ObservableObject {
                 return
             }
 
-            // Install tap for audio analysis and recording
-            inputNode.installTap(onBus: 0, bufferSize: AVAudioFrameCount(fftSize), format: inputFormat) { [weak self] (buffer, time) in
-                self?.processAudioBuffer(buffer)
-                // Also provide buffer for recording
-                self?.audioBufferDelegate?.didReceiveAudioBuffer(buffer, at: time)
+            // Install tap for audio analysis and recording with error handling
+            do {
+                inputNode.installTap(onBus: 0, bufferSize: AVAudioFrameCount(fftSize), format: inputFormat) { [weak self] (buffer, time) in
+                    self?.processAudioBuffer(buffer)
+                    // Also provide buffer for recording
+                    self?.audioBufferDelegate?.didReceiveAudioBuffer(buffer, at: time)
 
-                // Convert to CMSampleBuffer for recording
-                self?.convertAndSendToRecording(buffer: buffer, at: time)
+                    // Convert to CMSampleBuffer for recording
+                    self?.convertAndSendToRecording(buffer: buffer, at: time)
+                }
+                print("🎵 AudioManager: Audio tap installed successfully")
+            } catch {
+                print("🎵 AudioManager: Failed to install audio tap: \(error)")
+                return
             }
 
         } catch {
+            print("🎵 AudioManager: Audio setup failed: \(error)")
         }
     }
 

@@ -3,12 +3,12 @@
 <plist version="1.0">
 <dict>
     <key>NSCameraUsageDescription</key>
-    <string>This app uses the camera to create disco shadow effects.</string>
+    <string>This app uses the camera to create fever dream effects.</string>
     <key>NSMicrophoneUsageDescription</key>
     <string>This app uses the microphone to create audio-reactive visual effects and for video recording.</string>
     <key>NSPhotoLibraryAddUsageDescription</key>
     <string>This app needs access to save your psychedelic video recordings to Photos.</string>
     <key>NSPhotoLibraryUsageDescription</key>
-    <string>This app needs access to display your DiscoShadow video recordings in the gallery.</string>
+    <string>This app needs access to display your Fever Dream video recordings in the gallery.</string>
 </dict>
 </plist>

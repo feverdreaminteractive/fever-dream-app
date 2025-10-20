@@ -40,17 +40,25 @@ struct PremiumMenuView: View {
                                         .foregroundColor(.white)
                                 }
 
-                                Text("Get all premium effects + future releases")
+                                Text("All premium effects • 1 month free trial")
                                     .font(.system(size: 14))
                                     .foregroundColor(.white.opacity(0.8))
                                     .multilineTextAlignment(.center)
 
                                 VStack(spacing: 5) {
-                                    Text("$10.00")
-                                        .font(.system(size: 28, weight: .black))
-                                        .foregroundColor(.green)
+                                    HStack(alignment: .firstTextBaseline, spacing: 4) {
+                                        Text("FREE")
+                                            .font(.system(size: 20, weight: .bold))
+                                            .foregroundColor(.green)
+                                        Text("then")
+                                            .font(.system(size: 12))
+                                            .foregroundColor(.white.opacity(0.7))
+                                        Text("$1.99")
+                                            .font(.system(size: 28, weight: .black))
+                                            .foregroundColor(.green)
+                                    }
 
-                                    Text("per year")
+                                    Text("1 month free, then $1.99/month")
                                         .font(.system(size: 12))
                                         .foregroundColor(.white.opacity(0.7))
                                 }
@@ -59,14 +67,14 @@ struct PremiumMenuView: View {
                             Button(action: {
                                 showingSubscriptionSheet = true
                             }) {
-                                Text("SUBSCRIBE NOW")
+                                Text("START FREE TRIAL")
                                     .font(.system(size: 16, weight: .bold, design: .rounded))
                                     .foregroundColor(.black)
                                     .frame(maxWidth: .infinity)
                                     .padding()
                                     .background(
                                         LinearGradient(
-                                            colors: [.yellow, .orange],
+                                            colors: [.green, .cyan],
                                             startPoint: .leading,
                                             endPoint: .trailing
                                         )
@@ -118,8 +126,8 @@ struct PremiumMenuView: View {
                                         isOwned: storeManager.ownedEffects.contains(effect.id),
                                         onTap: {
                                             if !storeManager.ownedEffects.contains(effect.id) {
-                                                selectedEffect = effect
-                                                showingIndividualEffectSheet = true
+                                                // All effects require subscription now
+                                                showingSubscriptionSheet = true
                                             }
                                         }
                                     )
@@ -127,6 +135,18 @@ struct PremiumMenuView: View {
                             }
                             .padding(.horizontal)
                         }
+
+                        // Trial information
+                        VStack(spacing: 10) {
+                            Text("🎉 FREE for 30 days!")
+                                .font(.system(size: 16, weight: .bold))
+                                .foregroundColor(.green)
+
+                            Text("Cancel anytime. No commitment.")
+                                .font(.system(size: 12))
+                                .foregroundColor(.white.opacity(0.8))
+                        }
+                        .padding(.vertical, 15)
 
                         // Restore Purchases
                         Button("Restore Purchases") {
@@ -200,9 +220,9 @@ struct PremiumEffectCard: View {
                                 .font(.system(size: 30))
                                 .foregroundColor(.white)
 
-                            Text(effect.price)
-                                .font(.system(size: 16, weight: .bold))
-                                .foregroundColor(.white)
+                            Text("SUBSCRIPTION")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundColor(.cyan)
                         }
                     }
                 }
@@ -229,60 +249,35 @@ struct PremiumEffectCard: View {
 
 enum PremiumEffect: String, CaseIterable, Identifiable {
     case crtDitherGlitch = "crt_dither_glitch_effect"
-    case bridgetRileyOpArt = "bridget_riley_op_art_effect"
-    case opArtTriangles = "op_art_triangles_effect"
-    case tunnelVision = "tunnel_vision_effect"
-    case basicFeedback = "basic_feedback_effect"
 
     var id: String { rawValue }
 
     var name: String {
         switch self {
-        case .crtDitherGlitch: return "VHS DATAMOSH"
-        case .bridgetRileyOpArt: return "ATARI 1977 RETRO"
-        case .opArtTriangles: return "BLOTTER"
-        case .tunnelVision: return "OP-ART WAVES"
-        case .basicFeedback: return "FEEDBACK TRAILS"
+        case .crtDitherGlitch: return "HYPNOTIST"
         }
     }
 
     var description: String {
         switch self {
-        case .crtDitherGlitch: return "Vintage VHS tape corruption with datamoshing artifacts"
-        case .bridgetRileyOpArt: return "Retro computer graphics with pixelated video and geometric patterns"
-        case .opArtTriangles: return "Psychedelic patterns with audio-reactive color explosions and visual distortions"
-        case .tunnelVision: return "Animated Op-Art waves with HSV color cycling and audio-reactive distortions"
-        case .basicFeedback: return "Classic feedback effect with audio-reactive trailing and echo patterns"
+        case .crtDitherGlitch: return "Hypnotic waves, fast strobing colors, and audio-reactive image shake"
         }
     }
 
+    // Individual pricing removed - all effects included in subscription
     var price: String {
-        switch self {
-        case .crtDitherGlitch: return "$3.99"
-        case .bridgetRileyOpArt: return "$4.99"
-        case .opArtTriangles: return "$3.99"
-        case .tunnelVision: return "$4.99"
-        case .basicFeedback: return "$2.99"
-        }
+        return "SUBSCRIPTION"
     }
 
     var iconName: String {
         switch self {
         case .crtDitherGlitch: return "video.and.waveform.fill"
-        case .bridgetRileyOpArt: return "circle.hexagonpath.fill"
-        case .opArtTriangles: return "triangle.fill"
-        case .tunnelVision: return "waveform"
-        case .basicFeedback: return "arrow.triangle.2.circlepath"
         }
     }
 
     var gradientColors: [Color] {
         switch self {
         case .crtDitherGlitch: return [.red, .black, .gray]
-        case .bridgetRileyOpArt: return [.black, .white, .gray]
-        case .opArtTriangles: return [.purple, .pink, .cyan]
-        case .tunnelVision: return [.red, .pink, .orange]
-        case .basicFeedback: return [.blue, .cyan, .green]
         }
     }
 }

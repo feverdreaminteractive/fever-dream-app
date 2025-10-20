@@ -10,7 +10,8 @@ class StoreManager: NSObject, ObservableObject {
     @Published var errorMessage: String?
 
     private let productIdentifiers = Set([
-        "fever_dream_subscription_yearly",
+        "fever_dream_subscription_monthly",
+        // Individual effects are no longer sold separately - subscription only
         "crt_dither_glitch_effect",
         "kaleidoscope_effect",
         "time_warp_effect",
@@ -18,7 +19,9 @@ class StoreManager: NSObject, ObservableObject {
     ])
 
     var hasSubscription: Bool {
-        purchasedProducts.contains("fever_dream_subscription_yearly")
+        // Disable temporary subscription to fix audio engine crash
+        return false
+        // purchasedProducts.contains("fever_dream_subscription_monthly")
     }
 
     var ownedEffects: Set<String> {

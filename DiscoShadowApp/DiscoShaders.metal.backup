@@ -1,0 +1,736 @@
+#include <metal_stdlib>
+using namespace metal;
+
+struct DiscoUniforms {
+    float time;
+    float intensity;
+    float colorVariation;
+    float resolutionX;
+    float resolutionY;
+    float audioLevel;
+    float bassLevel;
+    float midLevel;
+    float trebleLevel;
+    float warpMagnitude;
+    float glitchIntensity;
+    float chromaticAberration;
+};
+
+struct VertexOut {
+    float4 position [[position]];
+    float2 texCoord;
+};
+
+vertex VertexOut vertexShader(uint vertexID [[vertex_id]],
+                             constant float4* vertices [[buffer(0)]]) {
+    VertexOut out;
+    float4 vertexData = vertices[vertexID];
+    out.position = float4(vertexData.xy, 0.0, 1.0);
+    out.texCoord = vertexData.zw;
+    return out;
+}
+
+fragment float4 fragmentShader(VertexOut in [[stage_in]],
+                              texture2d<float> colorTexture [[texture(0)]]) {
+    constexpr sampler textureSampler(mag_filter::linear, min_filter::linear);
+    return colorTexture.sample(textureSampler, in.texCoord);
+}
+
+
+
+
+
+kernel void discoShadowEffect(texture2d<float, access::read> inputTexture [[texture(0)]],
+                             texture2d<float, access::write> outputTexture [[texture(1)]],
+                             constant DiscoUniforms& uniforms [[buffer(0)]],
+                             uint2 gid [[thread_position_in_grid]]) {
+
+    if (gid.x >= inputTexture.get_width() || gid.y >= inputTexture.get_height()) {
+        return;
+    }
+
+    float2 uv = float2(gid) / float2(uniforms.resolutionX, uniforms.resolutionY);
+    float2 centeredUV = uv * 2.0 - 1.0;
+
+    // Audio-reactive warping with base intensity
+    float baseWarp = uniforms.warpMagnitude * 0.3; // Base warp always active
+    float audioWarp = uniforms.warpMagnitude * (uniforms.bassLevel * 0.8 + uniforms.audioLevel * 0.5);
+    float warpStrength = baseWarp + audioWarp;
+    float2 warpOffset = sin(centeredUV * 3.14159 + uniforms.time * 2.0) * warpStrength * 0.1;
+    float2 warpedUV = uv + warpOffset;
+
+    // Clamp UV coordinates
+    warpedUV = clamp(warpedUV, 0.0, 1.0);
+    uint2 warpedCoord = uint2(warpedUV * float2(uniforms.resolutionX, uniforms.resolutionY));
+
+    // Sample base color with bounds checking
+    float4 baseColor;
+    if (warpedCoord.x < inputTexture.get_width() && warpedCoord.y < inputTexture.get_height()) {
+        baseColor = inputTexture.read(warpedCoord);
+    } else {
+        baseColor = inputTexture.read(gid);
+    }
+
+    // Audio-reactive chromatic aberration effect - only when sound is present
+    float3 chromaticColor = baseColor.rgb;
+
+    // Only apply chromatic aberration if there's audio input - Enhanced with more movement
+    if (uniforms.audioLevel > 0.01) {
+        float aberrationAmount = 0.025 * (uniforms.audioLevel * 4.0 + uniforms.bassLevel * 3.0);
+
+        // Add more dynamic movement patterns based on audio frequencies
+        float bassMovement = sin(uniforms.time * 5.0) * uniforms.bassLevel * 0.8;
+        float midMovement = cos(uniforms.time * 12.0) * uniforms.midLevel * 0.6;
+        float trebleMovement = sin(uniforms.time * 20.0) * uniforms.trebleLevel * 0.4;
+
+        // Create flowing circular motion for red channel (bass)
+        float redAngle = uniforms.time * 3.0 + bassMovement * 2.0;
+        float2 redOffset = aberrationAmount * float2(cos(redAngle), sin(redAngle)) * (1.0 + bassMovement);
+
+        // Green channel gets subtle mid-frequency movement
+        float2 greenOffset = float2(midMovement * 0.01, midMovement * 0.008);
+
+        // Blue channel gets fast treble-driven movement
+        float blueAngle = -uniforms.time * 4.0 + trebleMovement * 3.0;
+        float2 blueOffset = aberrationAmount * float2(sin(blueAngle), cos(blueAngle)) * (1.0 + trebleMovement);
+
+        uint2 redCoord = uint2(clamp(warpedUV + redOffset, 0.0, 1.0) * float2(uniforms.resolutionX, uniforms.resolutionY));
+        uint2 greenCoord = uint2(clamp(warpedUV + greenOffset, 0.0, 1.0) * float2(uniforms.resolutionX, uniforms.resolutionY));
+        uint2 blueCoord = uint2(clamp(warpedUV + blueOffset, 0.0, 1.0) * float2(uniforms.resolutionX, uniforms.resolutionY));
+
+        float redChannel = baseColor.r;
+        float greenChannel = baseColor.g;
+        float blueChannel = baseColor.b;
+
+        if (redCoord.x < inputTexture.get_width() && redCoord.y < inputTexture.get_height()) {
+            redChannel = inputTexture.read(redCoord).r;
+        }
+        if (greenCoord.x < inputTexture.get_width() && greenCoord.y < inputTexture.get_height()) {
+            greenChannel = inputTexture.read(greenCoord).g;
+        }
+        if (blueCoord.x < inputTexture.get_width() && blueCoord.y < inputTexture.get_height()) {
+            blueChannel = inputTexture.read(blueCoord).b;
+        }
+
+        chromaticColor = float3(redChannel, greenChannel, blueChannel);
+    }
+
+
+    // Add beat-reactive color intensity boosts to the existing chromatic colors
+    float3 enhancedChromaticColor = chromaticColor;
+
+    if (uniforms.audioLevel > 0.01) {
+        // Convert to polar coordinates for additional effects
+        float angle = atan2(centeredUV.y, centeredUV.x);
+        float radius = length(centeredUV);
+
+        // Add beat-reactive color intensity shifts to the aberration
+        float beatPulse = sin(uniforms.time * 10.0) * uniforms.audioLevel * 0.2;
+        float bassBoost = sin(uniforms.time * 6.0 + radius * 8.0) * uniforms.bassLevel * 0.3;
+        float midBoost = sin(uniforms.time * 15.0 + angle * 6.0) * uniforms.midLevel * 0.25;
+        float trebleBoost = sin(uniforms.time * 25.0 + (uv.x - uv.y) * 20.0) * uniforms.trebleLevel * 0.2;
+
+        // Apply frequency-specific boosts to each color channel
+        enhancedChromaticColor.r += bassBoost + beatPulse;
+        enhancedChromaticColor.g += midBoost + beatPulse * 0.8;
+        enhancedChromaticColor.b += trebleBoost + beatPulse * 0.6;
+
+        enhancedChromaticColor = clamp(enhancedChromaticColor, 0.0, 1.0);
+    }
+
+    // Mix effects - focus on enhanced chromatic aberration as main effect
+    float3 finalColor = enhancedChromaticColor;
+
+    // Enhanced beat-reactive brightness and saturation
+    float beatIntensity = uniforms.audioLevel * 1.2 + uniforms.bassLevel * 0.8;
+    finalColor *= (1.0 + beatIntensity);
+
+    // Beat-driven saturation boost
+    float saturation = 1.0 + (uniforms.midLevel + uniforms.trebleLevel) * 0.6;
+    float3 gray = float3(dot(finalColor, float3(0.299, 0.587, 0.114)));
+    finalColor = mix(gray, finalColor, saturation);
+
+    // Dynamic vignette that pulses with the beat
+    float distance = length(centeredUV);
+    float vignettePulse = 0.2 + sin(uniforms.time * 8.0) * uniforms.audioLevel * 0.1;
+    float vignette = 1.0 - distance * vignettePulse;
+    finalColor *= vignette;
+
+    outputTexture.write(float4(finalColor, baseColor.a), gid);
+}
+
+// MARK: - CRT Dither Glitch Effect (Premium)
+kernel void crtDitherGlitchEffect(texture2d<float, access::read> inputTexture [[texture(0)]],
+                                  texture2d<float, access::write> outputTexture [[texture(1)]],
+                                  constant DiscoUniforms &uniforms [[buffer(0)]],
+                                  uint2 gid [[thread_position_in_grid]]) {
+
+    if (gid.x >= outputTexture.get_width() || gid.y >= outputTexture.get_height()) {
+        return;
+    }
+
+    float2 uv = float2(gid) / float2(outputTexture.get_width(), outputTexture.get_height());
+    float4 inputColor = inputTexture.read(gid);
+
+    // Audio responsiveness
+    float audioReactivity = (uniforms.audioLevel * 2.0 + uniforms.bassLevel * 3.0) * uniforms.intensity;
+    audioReactivity = clamp(audioReactivity, 0.0, 1.0);
+
+    // Time-based effects
+    float time = uniforms.time * 0.5;
+
+    // === SCAN LINES === (Bigger scanlines)
+    float scanlineFreq = 200.0 + audioReactivity * 100.0;
+    float scanlines = sin(uv.y * scanlineFreq) * 0.5 + 0.5;
+    scanlines = smoothstep(0.3, 0.7, scanlines);
+
+    // === RGB PHOSPHOR PATTERN ===
+    float2 phosphorUV = uv * float2(outputTexture.get_width() / 3.0, outputTexture.get_height());
+    float phosphorPattern = fmod(phosphorUV.x, 3.0);
+
+    float3 phosphorMask = float3(1.0);
+    if (phosphorPattern < 1.0) {
+        phosphorMask = float3(1.0, 0.3, 0.3); // Red phosphor
+    } else if (phosphorPattern < 2.0) {
+        phosphorMask = float3(0.3, 1.0, 0.3); // Green phosphor
+    } else {
+        phosphorMask = float3(0.3, 0.3, 1.0); // Blue phosphor
+    }
+
+    // === DITHERING PATTERN ===
+    // Bayer matrix 4x4 for ordered dithering (simplified for performance)
+    int x = int(gid.x) % 4;
+    int y = int(gid.y) % 4;
+
+    float bayerMatrix[16] = {
+         0,  8,  2, 10,
+        12,  4, 14,  6,
+         3, 11,  1,  9,
+        15,  7, 13,  5
+    };
+
+    float ditherThreshold = bayerMatrix[y * 4 + x] / 16.0;
+    ditherThreshold += audioReactivity * 0.3; // Audio-reactive dithering
+
+    // === GLITCH EFFECTS ===
+    float glitchNoise = fract(sin(dot(uv + time, float2(12.9898, 78.233))) * 43758.5453);
+    float glitchIntensity = uniforms.glitchIntensity * audioReactivity;
+
+    // Horizontal glitch displacement
+    float glitchLine = step(0.98, glitchNoise) * glitchIntensity;
+    float displacement = (glitchNoise - 0.5) * glitchLine * 0.1;
+    uv.x += displacement;
+
+    // Digital noise
+    float digitalNoise = step(0.95, fract(sin(dot(float2(gid), float2(12.9898, 78.233)) + time) * 43758.5453));
+    digitalNoise *= glitchIntensity;
+
+    // Sample the input texture with glitch displacement
+    uint2 sampleCoord = uint2(clamp(uv * float2(inputTexture.get_width(), inputTexture.get_height()),
+                                   float2(0.0),
+                                   float2(inputTexture.get_width() - 1, inputTexture.get_height() - 1)));
+
+    if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) {
+        inputColor = float4(0.0, 0.0, 0.0, 1.0); // Black outside bounds
+    } else {
+        inputColor = inputTexture.read(sampleCoord);
+    }
+
+    // === COLOR PROCESSING ===
+    float3 color = inputColor.rgb;
+
+    // Convert to CRT-style colors (boost greens for that retro monitor look)
+    color.g *= 1.2;
+    color.r *= 0.9;
+    color.b *= 0.8;
+
+    // Apply dithering
+    float brightness = dot(color, float3(0.299, 0.587, 0.114));
+    if (brightness < ditherThreshold) {
+        color *= 0.3; // Darken dithered areas
+    }
+
+    // Apply phosphor mask
+    color *= phosphorMask;
+
+    // Apply scanlines
+    color *= scanlines * 0.7 + 0.3;
+
+    // Add digital noise
+    color += digitalNoise * float3(0.1, 1.0, 0.1); // Green noise for CRT feel
+
+    // === CHROMATIC ABERRATION ===
+    float aberrationAmount = uniforms.chromaticAberration + audioReactivity * 0.02;
+    if (aberrationAmount > 0.001) {
+        float2 redOffset = float2(-aberrationAmount, 0.0);
+        float2 blueOffset = float2(aberrationAmount, 0.0);
+
+        uint2 redCoord = uint2(clamp((uv + redOffset) * float2(inputTexture.get_width(), inputTexture.get_height()),
+                                    float2(0.0),
+                                    float2(inputTexture.get_width() - 1, inputTexture.get_height() - 1)));
+        uint2 blueCoord = uint2(clamp((uv + blueOffset) * float2(inputTexture.get_width(), inputTexture.get_height()),
+                                     float2(0.0),
+                                     float2(inputTexture.get_width() - 1, inputTexture.get_height() - 1)));
+
+        color.r = inputTexture.read(redCoord).r * phosphorMask.r;
+        color.b = inputTexture.read(blueCoord).b * phosphorMask.b;
+    }
+
+    // Final color adjustments for CRT look
+    color = saturate(color);
+    color = pow(color, float3(1.0/2.2)); // Gamma correction for CRT
+
+    // Add subtle flicker
+    float flicker = 0.95 + 0.05 * sin(time * 60.0 + audioReactivity * 10.0);
+    color *= flicker;
+
+    float4 outputColor = float4(color, inputColor.a);
+    outputTexture.write(outputColor, gid);
+}
+
+// MARK: - VHS Datamoshing Effect (Premium)
+kernel void crtSlitScanEffect(texture2d<float, access::read> inputTexture [[texture(0)]],
+                              texture2d<float, access::write> outputTexture [[texture(1)]],
+                              constant DiscoUniforms &uniforms [[buffer(0)]],
+                              uint2 gid [[thread_position_in_grid]]) {
+
+    if (gid.x >= outputTexture.get_width() || gid.y >= outputTexture.get_height()) {
+        return;
+    }
+
+    float2 uv = float2(gid) / float2(outputTexture.get_width(), outputTexture.get_height());
+    float4 inputColor = inputTexture.read(gid);
+
+    // Enhanced audio responsiveness with frequency separation
+    float bassReactivity = uniforms.bassLevel * uniforms.intensity * 2.0;
+    float midReactivity = uniforms.midLevel * uniforms.intensity * 1.5;
+    float trebleReactivity = uniforms.trebleLevel * uniforms.intensity * 1.2;
+    float totalAudio = uniforms.audioLevel * uniforms.intensity * 2.5;
+
+    // Create different strength levels for different effects
+    float shakeStrength = clamp(bassReactivity + totalAudio * 0.8, 0.0, 1.0);
+    float glitchStrength = clamp(midReactivity + totalAudio * 0.6, 0.0, 1.0);
+    float noiseStrength = clamp(trebleReactivity + totalAudio * 0.4, 0.0, 1.0);
+
+    // Time-based effects with audio modulation
+    float time = uniforms.time + totalAudio * 10.0; // Audio speeds up time
+
+    // === AUDIO-REACTIVE VHS SHAKE EFFECT ===
+    // Shake responds to bass and overall audio level
+    float audioShakeIntensity = smoothstep(0.5, 3.0, 3.0 - fmod(time, 3.0)) * (shakeStrength * 15.0 + 0.5);
+
+    // Add instant audio spikes for more dramatic shake
+    float audioSpike = step(0.7, uniforms.bassLevel) * uniforms.bassLevel * 20.0;
+    audioShakeIntensity += audioSpike;
+
+    float2 shake = float2(
+        (fract(sin(time * 12.9898 + bassReactivity * 100.0) * 43758.5453) * 2.0 - 1.0),
+        (fract(sin(time * 78.233 + midReactivity * 80.0) * 43758.5453) * 2.0 - 1.0)
+    ) * audioShakeIntensity / float2(outputTexture.get_width(), outputTexture.get_height());
+
+    // === RGB WAVE DISPLACEMENT ===
+    // Simplex noise approximation for wave displacement
+    float y = uv.y * float(outputTexture.get_height());
+    float rgbWave = (
+        sin(y * 0.01 + time * 4.0) * (2.0 + glitchStrength * 32.0) *
+        sin(y * 0.02 + time * 2.0) * (1.0 + glitchStrength * 4.0) +
+        step(0.9995, sin(y * 0.005 + time * 1.6)) * 12.0 +
+        step(0.9999, sin(y * 0.005 + time * 2.0)) * -18.0
+    ) / float(outputTexture.get_width());
+
+    float rgbDiff = (6.0 + sin(time * 50.0 + uv.y * 40.0) * (20.0 * glitchStrength + 1.0)) / float(outputTexture.get_width());
+    float rgbUvX = uv.x + rgbWave;
+
+    // === CHROMATIC ABERRATION with RGB SEPARATION ===
+    // Sample RGB channels with different offsets (like the JS version)
+    float2 shakeUV = uv + shake;
+
+    uint2 redCoord = uint2(clamp((shakeUV + float2(rgbUvX + rgbDiff, uv.y)) * float2(inputTexture.get_width(), inputTexture.get_height()),
+                                 float2(0.0),
+                                 float2(inputTexture.get_width() - 1, inputTexture.get_height() - 1)));
+    uint2 greenCoord = uint2(clamp((shakeUV + float2(rgbUvX, uv.y)) * float2(inputTexture.get_width(), inputTexture.get_height()),
+                                   float2(0.0),
+                                   float2(inputTexture.get_width() - 1, inputTexture.get_height() - 1)));
+    uint2 blueCoord = uint2(clamp((shakeUV + float2(rgbUvX - rgbDiff, uv.y)) * float2(inputTexture.get_width(), inputTexture.get_height()),
+                                  float2(0.0),
+                                  float2(inputTexture.get_width() - 1, inputTexture.get_height() - 1)));
+
+    float r = inputTexture.read(redCoord).r;
+    float g = inputTexture.read(greenCoord).g;
+    float b = inputTexture.read(blueCoord).b;
+
+    // === WHITE NOISE ===
+    float whiteNoise = (fract(sin(dot(uv + fmod(time, 10.0), float2(12.9898, 78.233))) * 43758.5453) * 2.0 - 1.0) * (0.15 + noiseStrength * 0.15);
+
+    // === BLOCK NOISE (First Layer) ===
+    float bnTime = floor(time * 20.0) * 200.0;
+    float noiseX = step(0.12 + glitchStrength * 0.3, (sin(uv.x * 3.0 + bnTime) + 1.0) / 2.0);
+    float noiseY = step(0.12 + glitchStrength * 0.3, (sin(uv.y * 3.0 + bnTime) + 1.0) / 2.0);
+    float bnMask = noiseX * noiseY;
+
+    float bnUvX = uv.x + sin(bnTime) * 0.2 + rgbWave;
+
+    uint2 bnRedCoord = uint2(clamp(float2(bnUvX + rgbDiff, uv.y) * float2(inputTexture.get_width(), inputTexture.get_height()),
+                                   float2(0.0),
+                                   float2(inputTexture.get_width() - 1, inputTexture.get_height() - 1)));
+    uint2 bnGreenCoord = uint2(clamp(float2(bnUvX, uv.y) * float2(inputTexture.get_width(), inputTexture.get_height()),
+                                     float2(0.0),
+                                     float2(inputTexture.get_width() - 1, inputTexture.get_height() - 1)));
+    uint2 bnBlueCoord = uint2(clamp(float2(bnUvX - rgbDiff, uv.y) * float2(inputTexture.get_width(), inputTexture.get_height()),
+                                    float2(0.0),
+                                    float2(inputTexture.get_width() - 1, inputTexture.get_height() - 1)));
+
+    float bnR = inputTexture.read(bnRedCoord).r * bnMask;
+    float bnG = inputTexture.read(bnGreenCoord).g * bnMask;
+    float bnB = inputTexture.read(bnBlueCoord).b * bnMask;
+    float3 blockNoise = float3(bnR, bnG, bnB);
+
+    // === BLOCK NOISE (Second Layer) ===
+    float bnTime2 = floor(time * 25.0) * 300.0;
+    float noiseX2 = step(0.12 + glitchStrength * 0.5, (sin(uv.x * 2.0 + bnTime2) + 1.0) / 2.0);
+    float noiseY2 = step(0.12 + glitchStrength * 0.3, (sin(uv.y * 8.0 + bnTime2) + 1.0) / 2.0);
+    float bnMask2 = noiseX2 * noiseY2;
+
+    float bnR2 = inputTexture.read(bnRedCoord).r * bnMask2;
+    float bnG2 = inputTexture.read(bnGreenCoord).g * bnMask2;
+    float bnB2 = inputTexture.read(bnBlueCoord).b * bnMask2;
+    float3 blockNoise2 = float3(bnR2, bnG2, bnB2);
+
+    // === WAVE NOISE ===
+    float waveNoise = (sin(uv.y * 1200.0) + 1.0) / 2.0 * (0.15 + noiseStrength * 0.2);
+
+    // === FINAL VHS DATAMOSHING COMPOSITE ===
+    // Combine all effects like the JavaScript version
+    float3 baseColor = float3(r, g, b);
+
+    // Apply the JS formula: baseColor * (1.0 - masks) + noise effects
+    float3 finalColor = baseColor * (1.0 - bnMask - bnMask2) +
+                       float3(whiteNoise) + blockNoise + blockNoise2 - float3(waveNoise);
+
+    // Add VHS-style scanlines
+    float scanlineFreq = 300.0 + glitchStrength * 200.0; // Bigger scanlines as requested
+    float scanlines = (sin(uv.y * scanlineFreq) + 1.0) / 2.0;
+    finalColor *= (scanlines * 0.3 + 0.7); // Subtle scanline effect
+
+    // VHS color grading - desaturate and add vintage tint
+    float luminance = dot(finalColor, float3(0.299, 0.587, 0.114));
+    finalColor = mix(float3(luminance), finalColor, 0.8); // Desaturate slightly
+    finalColor *= float3(1.05, 0.95, 0.9); // Warm vintage tint
+
+    // Add VHS tape flutter effect
+    float flutter = sin(time * 15.0 + uv.y * 50.0) * 0.02 * totalAudio;
+    finalColor += float3(flutter * 0.1, flutter * 0.05, flutter * -0.05);
+
+    // Clamp to valid range
+    finalColor = saturate(finalColor);
+
+    float4 outputColor = float4(finalColor, inputColor.a);
+    outputTexture.write(outputColor, gid);
+}
+
+// MARK: - Bridget Riley Op-Art Effect (Premium)
+kernel void bridgetRileyOpArtEffect(texture2d<float, access::read> inputTexture [[texture(0)]],
+                                   texture2d<float, access::write> outputTexture [[texture(1)]],
+                                   constant DiscoUniforms &uniforms [[buffer(0)]],
+                                   uint2 gid [[thread_position_in_grid]]) {
+
+    if (gid.x >= outputTexture.get_width() || gid.y >= outputTexture.get_height()) {
+        return;
+    }
+
+    float2 uv = float2(gid) / float2(outputTexture.get_width(), outputTexture.get_height());
+    float4 inputColor = inputTexture.read(gid);
+
+    // Audio reactivity factor
+    float audioReactivity = (uniforms.bassLevel + uniforms.midLevel + uniforms.trebleLevel) / 3.0;
+    float time = uniforms.time;
+
+    // === ATARI 1977 RETRO COMPUTER GRAPHICS STYLE ===
+    // Inspired by the pixelmusic3000 hardware schematic
+
+    // Pixelation - create blocky retro look like composite video output
+    float pixelSize = 6.0 + audioReactivity * 12.0; // Audio makes pixels bigger
+    float2 pixelUV = floor(uv * pixelSize) / pixelSize;
+
+    // Sample video with pixelated coordinates
+    uint2 pixelCoord = uint2(clamp(pixelUV * float2(inputTexture.get_width(), inputTexture.get_height()),
+                                   float2(0.0),
+                                   float2(inputTexture.get_width() - 1, inputTexture.get_height() - 1)));
+    float3 pixelColor = inputTexture.read(pixelCoord).rgb;
+
+    // === RETRO COLOR PALETTE (1977 CRT Monitor/Composite Video Style) ===
+    // Reduce to limited color palette like Propeller chip output
+    float luma = dot(pixelColor, float3(0.299, 0.587, 0.114));
+
+    // Quantize to 4 color levels like early computers
+    float colorSteps = 4.0;
+    luma = floor(luma * colorSteps) / colorSteps;
+
+    // Create retro color scheme with audio reactivity (like Atari color palette)
+    float3 retroColor;
+    if (luma < 0.25) {
+        // Dark - deep purple/black (Atari dark colors)
+        retroColor = float3(0.05, 0.0, 0.15) + float3(uniforms.bassLevel * 0.2, 0.0, uniforms.bassLevel * 0.1);
+    } else if (luma < 0.5) {
+        // Mid-dark - cyan/blue (classic computer blue)
+        retroColor = float3(0.0, 0.4, 0.7) + float3(0.0, uniforms.midLevel * 0.3, uniforms.bassLevel * 0.2);
+    } else if (luma < 0.75) {
+        // Mid-bright - magenta/pink (Atari signature colors)
+        retroColor = float3(0.9, 0.3, 0.7) + float3(uniforms.trebleLevel * 0.2, 0.0, uniforms.midLevel * 0.15);
+    } else {
+        // Bright - white/yellow (phosphor glow)
+        retroColor = float3(1.0, 0.95, 0.7) + float3(0.0, uniforms.trebleLevel * 0.15, 0.0);
+    }
+
+    // === BRIDGET RILEY WAVE PATTERNS WITH DRIPPING EFFECT ===
+    // Create dripping/melting effect flowing from top to bottom
+    float dripSpeed = 0.8 + audioReactivity * 1.2; // Audio controls drip speed
+    float dripFlow = time * dripSpeed;
+
+    // Vertical drip distortion - makes patterns fall downward
+    float dripDistortion = sin(uv.x * 15.0 + dripFlow) * (1.0 - uv.y) * 0.3; // Stronger at top
+    float2 drippyUV = uv;
+    drippyUV.y += dripDistortion; // Shift patterns downward
+
+    // Add irregular drip trails
+    float dripTrails = 0.0;
+    for(int i = 0; i < 5; i++) {
+        float trailX = float(i) * 0.2 + 0.1; // Spaced drip positions
+        float trailWidth = 0.02 + sin(time * 2.0 + float(i)) * 0.01;
+        float trail = smoothstep(trailWidth, 0.0, abs(uv.x - trailX));
+
+        // Make trails flow downward with varying speeds
+        float trailSpeed = 0.5 + float(i) * 0.2 + audioReactivity * 0.8;
+        float trailFlow = fmod(uv.y + time * trailSpeed, 1.0);
+        trail *= smoothstep(0.1, 0.8, trailFlow);
+
+        dripTrails += trail;
+    }
+
+    // Primary wave system - now using drippy UV coordinates
+    float waveFreq1 = 40.0 + audioReactivity * 60.0; // Audio-reactive frequency
+    float wavePhase1 = time * 2.0;
+    float wave1 = sin((drippyUV.y + sin(drippyUV.x * 8.0 + time) * 0.1) * waveFreq1 + wavePhase1);
+
+    // Secondary wave system - vertical undulations with drip effect
+    float waveFreq2 = 35.0 + sin(time * 0.3) * 20.0;
+    float wave2 = sin((drippyUV.x + sin(drippyUV.y * 6.0 + time * 1.5) * 0.15) * waveFreq2 + time * 3.0);
+
+    // Tertiary wave system - diagonal interference with dripping
+    float wave3 = sin((drippyUV.x + drippyUV.y) * 25.0 + time * 1.8 + audioReactivity * 10.0);
+
+    // === MOIRE INTERFERENCE PATTERNS ===
+    // Create the signature Riley moire effects
+    float2 center = float2(0.5, 0.5);
+    float2 centeredUV = uv - center;
+    float radius = length(centeredUV);
+    float angle = atan2(centeredUV.y, centeredUV.x);
+
+    // Radial moire pattern
+    float radialFreq = 60.0 + audioReactivity * 40.0;
+    float radialWave = sin(radius * radialFreq + time * 4.0);
+
+    // Angular moire pattern
+    float angularFreq = 12.0 + sin(time * 0.5) * 6.0;
+    float angularWave = sin(angle * angularFreq + time * 2.5);
+
+    // === OPTICAL VIBRATION EFFECT ===
+    // Combine waves to create visual vibration
+    float combinedWave = (wave1 + wave2 * 0.7 + wave3 * 0.5 + radialWave * 0.8 + angularWave * 0.6) / 3.6;
+
+    // Add fine-grain vibration for visual tension
+    float fineGrain = sin(uv.x * 200.0 + time * 10.0) * sin(uv.y * 200.0 + time * 8.0) * 0.1;
+    combinedWave += fineGrain * audioReactivity;
+
+    // === AUDIO-REACTIVE DISTORTION ===
+    // Frequency-based pattern modulation
+    float bassDistortion = sin(uv.x * 50.0 + time * 5.0) * uniforms.bassLevel * 0.3;
+    float midDistortion = sin(uv.y * 40.0 + time * 7.0) * uniforms.midLevel * 0.2;
+    float trebleDistortion = sin((uv.x + uv.y) * 80.0 + time * 12.0) * uniforms.trebleLevel * 0.15;
+
+    combinedWave += bassDistortion + midDistortion + trebleDistortion;
+
+    // === PATTERN THRESHOLD AND CONTRAST ===
+    // Convert wave to high-contrast black/white pattern
+    float threshold = 0.1 + audioReactivity * 0.3; // Audio-reactive threshold
+    float pattern = step(threshold, sin(combinedWave * 3.14159));
+
+    // Add edge softening for smoother transitions
+    float softEdge = smoothstep(threshold - 0.05, threshold + 0.05, sin(combinedWave * 3.14159));
+    pattern = mix(pattern, softEdge, 0.3);
+
+    // === DRIPPING BLACK PATTERNS ===
+    // Make the dark (black) parts of the pattern drip downward
+    float blackPattern = 1.0 - pattern; // Invert so black = 1, white = 0
+
+    // Apply dripping effect to black areas only
+    float drippyBlack = blackPattern;
+
+    // Add drip trails to black pattern - trails extend black areas downward
+    float trailMask = dripTrails * blackPattern; // Only add trails where there are black areas above
+
+    // Create gravity effect - black pixels "fall" downward
+    float gravityEffect = 0.0;
+    for(float dy = 0.0; dy < 0.3; dy += 0.05) {
+        float2 aboveUV = uv;
+        aboveUV.y -= dy; // Look above current pixel
+
+        if(aboveUV.y >= 0.0 && aboveUV.y <= 1.0) {
+            // Sample pattern from above with drip distortion
+            float2 aboveDrippyUV = aboveUV;
+            float aboveDripDistortion = sin(aboveUV.x * 15.0 + dripFlow) * (1.0 - aboveUV.y) * 0.3;
+            aboveDrippyUV.y += aboveDripDistortion;
+
+            float aboveCombinedWave = sin((aboveDrippyUV.y + sin(aboveDrippyUV.x * 8.0 + time) * 0.1) * waveFreq1 + wavePhase1) * 0.4 +
+                                    sin((aboveDrippyUV.x + sin(aboveDrippyUV.y * 6.0 + time * 1.5) * 0.15) * waveFreq2 + time * 3.0) * 0.3 +
+                                    sin((aboveDrippyUV.x + aboveDrippyUV.y) * 25.0 + time * 1.8 + audioReactivity * 10.0) * 0.3;
+
+            float abovePattern = step(threshold, sin(aboveCombinedWave * 3.14159));
+            float aboveBlack = 1.0 - abovePattern;
+
+            // Add gravity influence based on distance and audio
+            float fallStrength = aboveBlack * (1.0 - dy * 3.0) * (0.5 + audioReactivity * 1.5);
+            gravityEffect = max(gravityEffect, fallStrength);
+        }
+    }
+
+    // Combine original black pattern with drip trails and gravity effect
+    drippyBlack = max(drippyBlack, max(trailMask, gravityEffect));
+
+    // Convert back to white/black pattern (white = 1, black = 0)
+    pattern = 1.0 - drippyBlack;
+
+    // === DYNAMIC PATTERN INVERSION ===
+    // Audio-reactive pattern flipping for dramatic effect (applied after dripping)
+    float inversionTrigger = step(0.7, uniforms.bassLevel) * sin(time * 15.0);
+    if (inversionTrigger > 0.5) {
+        pattern = 1.0 - pattern;
+    }
+
+    // === COLOR MODULATION ===
+    // Apply subtle color shifts based on audio
+    float3 basePattern = float3(pattern);
+
+    // Add chromatic shifts based on frequency content
+    float3 colorShift = float3(
+        uniforms.bassLevel * 0.2,     // Red shift for bass
+        uniforms.midLevel * 0.15,     // Green shift for mids
+        uniforms.trebleLevel * 0.25   // Blue shift for treble
+    );
+
+    basePattern += colorShift * (1.0 - pattern); // Apply color to dark areas
+
+    // === PURE TOUCHDESIGNER FREQUENCY SPECTRUM VISUALIZATION ===
+    // Recreate the exact visualization from the TD GIFs
+
+    // Create frequency bands across horizontal spectrum (like TD audio spectrum)
+    float freqBand = uv.x; // Horizontal = frequency bands (0 = low, 1 = high)
+
+    // Get frequency amplitudes
+    float bassFreq = uniforms.bassLevel;
+    float midFreq = uniforms.midLevel;
+    float trebleFreq = uniforms.trebleLevel;
+
+    // Create spectrum strips exactly like TouchDesigner CHOP to TOP
+    float3 spectrumColors = float3(0.0);
+
+    // Low frequencies (0.0 to 0.33) - RED channel (left stereo)
+    if (freqBand <= 0.33) {
+        float bassIntensity = bassFreq;
+        float bassHeight = bassIntensity; // Height represents amplitude
+
+        // Vertical strip - brighter at bottom, fade to top
+        float stripHeight = 1.0 - uv.y; // Invert Y so bottom = 1.0, top = 0.0
+        float bassStrip = smoothstep(0.0, bassHeight, stripHeight);
+
+        spectrumColors.r = bassStrip * bassIntensity;
+    }
+
+    // Mid frequencies (0.33 to 0.66) - GREEN channel (center)
+    else if (freqBand <= 0.66) {
+        float midIntensity = midFreq;
+        float midHeight = midIntensity;
+
+        float stripHeight = 1.0 - uv.y;
+        float midStrip = smoothstep(0.0, midHeight, stripHeight);
+
+        spectrumColors.g = midStrip * midIntensity;
+    }
+
+    // High frequencies (0.66 to 1.0) - BLUE channel (right stereo)
+    else {
+        float trebleIntensity = trebleFreq;
+        float trebleHeight = trebleIntensity;
+
+        float stripHeight = 1.0 - uv.y;
+        float trebleStrip = smoothstep(0.0, trebleHeight, stripHeight);
+
+        spectrumColors.b = trebleStrip * trebleIntensity;
+    }
+
+    // Add yellow mixing for overlapping frequencies (like TD additive mixing)
+    if (freqBand <= 0.33 && bassFreq > 0.3) {
+        spectrumColors.g += spectrumColors.r * 0.5; // Bass bleeds into green for yellow
+    }
+    if (freqBand >= 0.66 && trebleFreq > 0.3) {
+        spectrumColors.g += spectrumColors.b * 0.3; // Treble bleeds into green
+    }
+
+    // === VIDEO/PHOTO CONTENT INTEGRATION ===
+    // Use original video/photo as texture map for the Op-Art patterns
+
+    // Sample original content with pattern-based UV distortion
+    float2 contentUV = uv;
+
+    // Apply Op-Art pattern as displacement map for content sampling
+    float2 patternDisplacement = float2(
+        sin(combinedWave * 6.28) * 0.05 * audioReactivity,
+        cos(combinedWave * 6.28) * 0.05 * audioReactivity
+    );
+    contentUV += patternDisplacement;
+
+    // Sample content with pattern-displaced coordinates
+    uint2 contentCoord = uint2(clamp(contentUV * float2(inputTexture.get_width(), inputTexture.get_height()),
+                                     float2(0.0),
+                                     float2(inputTexture.get_width() - 1, inputTexture.get_height() - 1)));
+    float3 contentColor = inputTexture.read(contentCoord).rgb;
+
+    // === FREQUENCY-REACTIVE CONTENT MODULATION ===
+    // (Content integration now handled directly in final composition)
+
+    // === FINAL COMPOSITION ===
+    // Pure TouchDesigner frequency spectrum visualization - exactly like the GIFs
+    float3 finalColor;
+
+    if (audioReactivity > 0.05) {
+        // Use pure spectrum strips like TouchDesigner - no pattern overlay
+        finalColor = spectrumColors;
+
+        // Add video content as subtle background (very low opacity)
+        finalColor = mix(contentColor * 0.1, finalColor, 0.9);
+
+        // Boost frequency visualization intensity for clarity
+        finalColor *= 2.0;
+    } else {
+        // Without audio: show subtle video content only
+        finalColor = contentColor * 0.3;
+    }
+
+    // Add subtle brightness modulation for visual interest
+    float brightness = 1.0 + sin(time * 8.0) * audioReactivity * 0.2;
+    finalColor *= brightness;
+
+    // Dynamic contrast with content preservation
+    finalColor = saturate(finalColor);
+    if (audioReactivity > 0.05) {
+        finalColor = pow(finalColor, float3(1.0 + audioReactivity * 0.3)); // Less aggressive contrast with content
+    }
+
+    float4 outputColor = float4(finalColor, inputColor.a);
+    outputTexture.write(outputColor, gid);
+}
+
+
+
+
+

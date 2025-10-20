@@ -111,9 +111,9 @@ struct ContentView: View {
                     Color.black.edgesIgnoringSafeArea(.all)
 
                     VStack {
-                        // Simple top bar with app title and menu
+                        // Always-visible top bar with app title and menu - independent of camera
                         HStack {
-                            Text("FΣVΣЯ DЯΣΛM")
+                            Text("FΣVΣЯ DЯΣΛМ")
                                 .font(.system(size: 18, weight: .medium, design: .monospaced))
                                 .foregroundColor(.white)
 
@@ -124,16 +124,25 @@ struct ContentView: View {
                                     showMenu.toggle()
                                 }
                             }) {
-                                Image(systemName: "line.3.horizontal")
-                                    .font(.title2)
-                                    .foregroundColor(.white)
+                                ZStack {
+                                    Circle()
+                                        .fill(Color.white.opacity(0.15))
+                                        .frame(width: 40, height: 40)
+
+                                    Image(systemName: "line.3.horizontal")
+                                        .font(.title2)
+                                        .fontWeight(.medium)
+                                        .foregroundColor(.white)
+                                }
                             }
                         }
                         .padding(.horizontal, 20)
                         .padding(.top, 10)
+                        .zIndex(100) // Ensure top bar stays on top
 
-                        // Camera preview with zoom gesture
+                        // Camera preview with zoom gesture - isolated from top UI
                         CameraPreviewView(cameraManager: cameraManager)
+                            .id("cameraPreview") // Give stable identity
                             .gesture(
                                 DragGesture().onChanged({ (val) in
                                     // Only accept vertical drag for zoom
@@ -265,6 +274,7 @@ struct ContentView: View {
                 }
                 .background(Color.black.opacity(0.3))
                 .ignoresSafeArea()
+                .zIndex(1000) // Force menu to appear on top
                 .onTapGesture {
                     withAnimation(.easeInOut(duration: 0.3)) {
                         showMenu = false
