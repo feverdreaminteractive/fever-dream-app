@@ -2,6 +2,7 @@ import AVFoundation
 import UIKit
 import Combine
 import CoreVideo
+import Photos
 
 class CameraManager: NSObject, ObservableObject, RecordingAudioDelegate, AVCapturePhotoCaptureDelegate {
     @Published var isSessionRunning = false
@@ -249,8 +250,10 @@ class CameraManager: NSObject, ObservableObject, RecordingAudioDelegate, AVCaptu
     }
 
     func startRecording() {
+        print("🎬 startRecording() called")
         recordingQueue.async {
             guard !self.isRecording else {
+                print("🎬 Already recording, ignoring startRecording()")
                 return
             }
 
@@ -259,6 +262,7 @@ class CameraManager: NSObject, ObservableObject, RecordingAudioDelegate, AVCaptu
             let formattedTimestamp = String(format: "%.3f", timestamp)
             let outputURL = documentsURL.appendingPathComponent("FeverDream_DiscoShadow_\(formattedTimestamp).mp4")
             self.recordingURL = outputURL
+            print("🎬 Starting recording to: \(outputURL.path)")
 
             do {
                 // Create asset writer
@@ -341,8 +345,10 @@ class CameraManager: NSObject, ObservableObject, RecordingAudioDelegate, AVCaptu
     }
 
     func stopRecording() {
+        print("🎬 stopRecording() called")
         recordingQueue.async {
             guard self.isRecording else {
+                print("🎬 Not recording, ignoring stopRecording()")
                 return
             }
 
@@ -359,8 +365,10 @@ class CameraManager: NSObject, ObservableObject, RecordingAudioDelegate, AVCaptu
 
                 DispatchQueue.main.async {
                     if let outputURL = self.recordingURL {
+                        print("🎬 Recording finished, saving video: \(outputURL.lastPathComponent)")
                         self.saveVideoToPhotos(url: outputURL)
                     } else {
+                        print("❌ Recording finished but recordingURL is nil!")
                     }
                 }
 
@@ -439,13 +447,11 @@ class CameraManager: NSObject, ObservableObject, RecordingAudioDelegate, AVCaptu
     }
 
     private func saveVideoToPhotos(url: URL) {
-        // Keep video in Documents directory - don't delete it
+        // Keep video in Documents directory for app gallery
         print("🎥 Video saved to Documents: \(url.lastPathComponent)")
 
         // Notify gallery to refresh
         NotificationCenter.default.post(name: .init("MediaCaptured"), object: nil)
-
-        // No cleanup - keep the file for our Documents-based gallery
     }
 
     func setZoom(_ factor: CGFloat) {

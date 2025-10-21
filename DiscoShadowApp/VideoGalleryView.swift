@@ -94,6 +94,7 @@ struct VideoGalleryView: View {
             loadMediaFiles()
         }
         .onReceive(NotificationCenter.default.publisher(for: .init("MediaCaptured"))) { _ in
+            print("📡 Gallery received MediaCaptured notification")
             // Auto-refresh when new media is captured
             loadMediaFiles()
         }
@@ -157,10 +158,12 @@ struct VideoGalleryView: View {
     }
 
     private func loadMediaFiles() {
+        print("📁 loadMediaFiles() called")
         isLoading = true
 
         DispatchQueue.global(qos: .background).async {  // Use background queue to avoid blocking
             let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+            print("📁 Checking Documents directory: \(documentsURL.path)")
             var files: [MediaFile] = []
 
             do {
@@ -177,10 +180,23 @@ struct VideoGalleryView: View {
                     return fileName.hasPrefix("FeverDream_") && (fileName.hasSuffix(".mp4") || fileName.hasSuffix(".jpg"))
                 }
 
-                // Sort by filename (which contains timestamp) - faster than file system queries
+                // Sort by filename (which contains timestamp) - newer first
                 let sortedFiles = feverDreamFiles.sorted { url1, url2 in
-                    return url1.lastPathComponent > url2.lastPathComponent  // Newer first based on filename
+                    // Extract timestamps from filenames for proper comparison
+                    let extractTimestamp = { (filename: String) -> Double in
+                        let components = filename.components(separatedBy: "_")
+                        if components.count >= 3 {
+                            let timestampPart = components[2].components(separatedBy: ".")[0]
+                            return Double(timestampPart) ?? 0
+                        }
+                        return 0
+                    }
+
+                    let timestamp1 = extractTimestamp(url1.lastPathComponent)
+                    let timestamp2 = extractTimestamp(url2.lastPathComponent)
+                    return timestamp1 > timestamp2  // Newer first
                 }
+                print("📁 First 3 sorted files: \(sortedFiles.prefix(3).map { $0.lastPathComponent })")
 
                 // Limit to most recent 20 files for performance
                 let recentFiles = Array(sortedFiles.prefix(20))
@@ -361,6 +377,7 @@ struct MediaFileThumbnailView: View {
     }
 
     private func generateVideoThumbnail(from videoURL: URL) -> UIImage? {
+        print("🎬 Generating thumbnail for: \(videoURL.lastPathComponent)")
         return autoreleasepool {
             let asset = AVAsset(url: videoURL)
 
@@ -376,14 +393,18 @@ struct MediaFileThumbnailView: View {
 
             do {
                 let cgImage = try imageGenerator.copyCGImage(at: time, actualTime: nil)
+                print("✅ Successfully generated thumbnail for: \(videoURL.lastPathComponent)")
                 return UIImage(cgImage: cgImage)
             } catch {
+                print("⚠️ First frame failed for \(videoURL.lastPathComponent): \(error)")
                 // Fallback: try a slightly later frame
                 let fallbackTime = CMTime(seconds: 0.5, preferredTimescale: 1)
                 do {
                     let cgImage = try imageGenerator.copyCGImage(at: fallbackTime, actualTime: nil)
+                    print("✅ Successfully generated fallback thumbnail for: \(videoURL.lastPathComponent)")
                     return UIImage(cgImage: cgImage)
                 } catch {
+                    print("❌ Both thumbnail attempts failed for \(videoURL.lastPathComponent): \(error)")
                     return createPlaceholderThumbnail(isVideo: true)
                 }
             }

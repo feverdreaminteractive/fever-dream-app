@@ -36,6 +36,7 @@ struct ContentView: View {
 
     // Load latest media thumbnail
     private func loadLatestMediaThumbnail() {
+        print("🔄 Loading latest media thumbnail for gallery icon")
         DispatchQueue.global(qos: .utility).async {
             let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
 
@@ -50,18 +51,35 @@ struct ContentView: View {
                 let feverDreamFiles = fileURLs.filter { url in
                     let fileName = url.lastPathComponent
                     return fileName.hasPrefix("FeverDream_") && (fileName.hasSuffix(".mp4") || fileName.hasSuffix(".jpg"))
-                }.sorted { $0.lastPathComponent > $1.lastPathComponent }
+                }.sorted { url1, url2 in
+                    // Extract timestamps from filenames for proper comparison
+                    let extractTimestamp = { (filename: String) -> Double in
+                        let components = filename.components(separatedBy: "_")
+                        if components.count >= 3 {
+                            let timestampPart = components[2].components(separatedBy: ".")[0]
+                            return Double(timestampPart) ?? 0
+                        }
+                        return 0
+                    }
+
+                    let timestamp1 = extractTimestamp(url1.lastPathComponent)
+                    let timestamp2 = extractTimestamp(url2.lastPathComponent)
+                    return timestamp1 > timestamp2  // Newer first
+                }
+                print("🔄 All sorted files for gallery icon: \(feverDreamFiles.map { $0.lastPathComponent })")
 
                 DispatchQueue.main.async {
                     self.hasMediaFiles = !feverDreamFiles.isEmpty
                 }
 
                 guard let latestFile = feverDreamFiles.first else {
+                    print("🔄 No media files found for gallery icon")
                     DispatchQueue.main.async {
                         self.latestMediaThumbnail = nil
                     }
                     return
                 }
+                print("🔄 Latest media file for gallery icon: \(latestFile.lastPathComponent)")
 
                 let isVideo = latestFile.pathExtension.lowercased() == "mp4"
                 let thumbnailImage: UIImage?
@@ -473,6 +491,7 @@ struct ContentView: View {
             loadLatestMediaThumbnail()
         }
         .onReceive(NotificationCenter.default.publisher(for: .init("MediaCaptured"))) { _ in
+            print("🔄 ContentView received MediaCaptured notification, updating gallery icon")
             // Refresh thumbnail when new media is captured
             loadLatestMediaThumbnail()
         }
