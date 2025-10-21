@@ -40,6 +40,7 @@ fragment float4 fragmentShader(VertexOut in [[stage_in]],
 
 
 
+
 kernel void discoShadowEffect(texture2d<float, access::read> inputTexture [[texture(0)]],
                              texture2d<float, access::write> outputTexture [[texture(1)]],
                              constant DiscoUniforms& uniforms [[buffer(0)]],
@@ -1483,5 +1484,220 @@ kernel void lfoModulationEffect(texture2d<float, access::read> inputTexture [[te
     float4 outputColor = float4(finalColor, inputColor.a);
     outputTexture.write(outputColor, gid);
 }
+
+// === BAD TV EFFECT - Feedback Loop ===
+// HSV conversion functions
+float3 rgb2hsv(float3 c) {
+    float4 K = float4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
+    float4 p = c.g < c.b ? float4(c.b, c.g, K.w, K.z) : float4(c.g, c.b, K.x, K.y);
+    float4 q = c.r < p.x ? float4(p.x, p.y, p.w, c.r) : float4(c.r, p.y, p.z, p.x);
+
+    float d = q.x - min(q.w, q.y);
+    float e = 1.0e-10;
+    return float3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
+}
+
+float3 hsv2rgb(float3 c) {
+    float4 K = float4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
+    float3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
+    return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
+}
+
+kernel void badTVEffect(texture2d<float, access::read> inputTexture [[texture(0)]],
+                       texture2d<float, access::write> outputTexture [[texture(1)]],
+                       texture2d<float, access::read> feedbackTexture [[texture(2)]],
+                       constant DiscoUniforms& uniforms [[buffer(0)]],
+                       uint2 gid [[thread_position_in_grid]]) {
+
+    if (gid.x >= inputTexture.get_width() || gid.y >= inputTexture.get_height()) {
+        return;
+    }
+
+    const float pi = 3.14159265359;
+    float2 resolution = float2(uniforms.resolutionX, uniforms.resolutionY);
+    float2 loc = float2(gid) / resolution;
+
+    // Audio-reactive parameters mapped to ISF inputs
+    float audioLevel = uniforms.audioLevel;
+    float bassLevel = uniforms.bassLevel;
+    float midLevel = uniforms.midLevel;
+    float trebleLevel = uniforms.trebleLevel;
+
+    // Map audio to feedback parameters
+    float2 preShift = float2(0.5 + bassLevel * 0.1, 0.5 + midLevel * 0.1);  // Slight audio-reactive shift
+    float feedbackLevel = 0.9 + audioLevel * 0.1;  // 0.9-1.0 based on audio
+    float rotateAngle = trebleLevel * 0.5;  // 0-0.5 rotation based on treble
+    float zoomLevel = 1.2 + bassLevel * 0.8;  // 1.2-2.0 zoom based on bass
+    float2 zoomCenter = float2(0.5, 0.5);  // Fixed center
+    float2 feedbackShift = float2(0.5 + sin(uniforms.time) * 0.05, 0.5 + cos(uniforms.time) * 0.05);  // Time-based shift
+    bool invert = false;  // No inversion
+    int blendMode = 3;  // Max blend mode
+    float blackThresh = 0.1;  // Fixed threshold
+    float satLevel = 1.0 + midLevel;  // 1.0-2.0 saturation based on mids
+    float colorShift = trebleLevel * 0.5;  // 0-0.5 color shift based on treble
+
+    // Sample input pixel with preShift
+    float2 inputLoc = loc + (0.5 - preShift);
+    uint2 inputCoords = uint2(clamp(inputLoc * resolution, 0.0, resolution - 1.0));
+    float4 inputPixelColor = inputTexture.read(inputCoords);
+
+    float4 feedbackPixelColor = float4(0.0);
+
+    // Apply rotation
+    float2 rotLoc = loc * resolution;
+    float r = distance(resolution/2.0, rotLoc);
+    float a = atan2((rotLoc.y - resolution.y/2.0), (rotLoc.x - resolution.x/2.0));
+
+    rotLoc.x = r * cos(a + 2.0 * pi * rotateAngle) + 0.5;
+    rotLoc.y = r * sin(a + 2.0 * pi * rotateAngle) + 0.5;
+
+    rotLoc = rotLoc / resolution + float2(0.5);
+
+    // Apply zoom
+    float2 modifiedCenter = zoomCenter;
+    rotLoc.x = (rotLoc.x - modifiedCenter.x) * (1.0/zoomLevel) + modifiedCenter.x;
+    rotLoc.y = (rotLoc.y - modifiedCenter.y) * (1.0/zoomLevel) + modifiedCenter.y;
+    rotLoc += (0.5 - feedbackShift);
+
+    // Sample feedback texture
+    if (rotLoc.x < 0.0 || rotLoc.y < 0.0 || rotLoc.x > 1.0 || rotLoc.y > 1.0) {
+        feedbackPixelColor = float4(0.0);
+    } else {
+        uint2 feedbackCoords = uint2(clamp(rotLoc * resolution, 0.0, resolution - 1.0));
+        feedbackPixelColor = feedbackTexture.read(feedbackCoords);
+    }
+
+    // Apply color transformations to feedback
+    feedbackPixelColor.rgb = rgb2hsv(feedbackPixelColor.rgb);
+    feedbackPixelColor.r = fmod(feedbackPixelColor.r + colorShift, 1.0);
+    feedbackPixelColor.g *= satLevel;
+    feedbackPixelColor.rgb = hsv2rgb(feedbackPixelColor.rgb);
+
+    if (invert) {
+        feedbackPixelColor.rgb = 1.0 - feedbackPixelColor.rgb;
+    }
+
+    // Apply blend mode (Max blend mode = 3)
+    if (blendMode == 0) {  // Add
+        inputPixelColor = inputPixelColor + feedbackLevel * feedbackPixelColor;
+    }
+    else if (blendMode == 1) {  // Over Black
+        float val = inputPixelColor.a * (inputPixelColor.r + inputPixelColor.g + inputPixelColor.b) / 3.0;
+        inputPixelColor = (val >= blackThresh) ? inputPixelColor : feedbackLevel * feedbackPixelColor;
+        inputPixelColor.a = inputPixelColor.a + feedbackPixelColor.a * feedbackLevel;
+    }
+    else if (blendMode == 2) {  // Over Alpha
+        inputPixelColor.rgb = inputPixelColor.a * inputPixelColor.rgb + (1.0 - inputPixelColor.a) * feedbackLevel * feedbackPixelColor.rgb;
+        inputPixelColor.a = inputPixelColor.a + feedbackPixelColor.a * feedbackLevel;
+    }
+    else if (blendMode == 3) {  // Max
+        inputPixelColor.rgb = max(inputPixelColor.a * inputPixelColor.rgb, feedbackLevel * feedbackPixelColor.rgb);
+        inputPixelColor.a = inputPixelColor.a + feedbackPixelColor.a * feedbackLevel;
+    }
+    else if (blendMode == 4) {  // Under Black
+        float val = feedbackPixelColor.a * (feedbackPixelColor.r + feedbackPixelColor.g + feedbackPixelColor.b) / 3.0;
+        inputPixelColor = (val < blackThresh) ? inputPixelColor.a * inputPixelColor : feedbackLevel * feedbackPixelColor;
+        inputPixelColor.a = inputPixelColor.a + feedbackPixelColor.a * feedbackLevel;
+    }
+    else if (blendMode == 5) {  // Under Alpha
+        inputPixelColor.rgb = (1.0 - feedbackPixelColor.a) * inputPixelColor.a * inputPixelColor.rgb + feedbackLevel * feedbackPixelColor.rgb;
+        inputPixelColor.a = inputPixelColor.a + feedbackPixelColor.a * feedbackLevel;
+    }
+
+    outputTexture.write(inputPixelColor, gid);
+}
+
+// === STROBE EFFECT ===
+kernel void strobeEffect(texture2d<float, access::read> inputTexture [[texture(0)]],
+                         texture2d<float, access::write> outputTexture [[texture(1)]],
+                         texture2d<float, access::read_write> strobeStateTexture [[texture(2)]],
+                         constant DiscoUniforms& uniforms [[buffer(0)]],
+                         uint2 gid [[thread_position_in_grid]]) {
+
+    if (gid.x >= inputTexture.get_width() || gid.y >= inputTexture.get_height()) {
+        return;
+    }
+
+    float2 resolution = float2(uniforms.resolutionX, uniforms.resolutionY);
+    float time = uniforms.time;
+
+    // Audio-reactive parameters mapped to ISF inputs
+    float audioLevel = uniforms.audioLevel;
+    float bassLevel = uniforms.bassLevel;
+    float midLevel = uniforms.midLevel;
+    float trebleLevel = uniforms.trebleLevel;
+
+    // Map audio to strobe parameters
+    bool r = true;  // Red channel enabled
+    bool g = true;  // Green channel enabled
+    bool b = true;  // Blue channel enabled
+    bool a = false; // Alpha channel disabled
+
+    // Audio-reactive strobe rates (in seconds per cycle)
+    float4 strobeRates = float4(
+        bassLevel > 0.1 ? (0.1 + bassLevel * 0.9) : 0.0,      // Red controlled by bass
+        midLevel > 0.1 ? (0.15 + midLevel * 0.85) : 0.0,      // Green controlled by mids
+        trebleLevel > 0.1 ? (0.05 + trebleLevel * 0.45) : 0.0, // Blue controlled by treble
+        0.0  // Alpha disabled
+    );
+
+    // Read current strobe state (1x1 texture at center)
+    float4 currentState = strobeStateTexture.read(uint2(0, 0));
+
+    // Update strobe state based on time and rates
+    float4 newState;
+
+    // Red channel strobe logic
+    if (strobeRates.r == 0.0) {
+        newState.r = (currentState.r == 0.0) ? 1.0 : 0.0;  // Toggle on silence
+    } else {
+        newState.r = (fmod(time, strobeRates.r) <= strobeRates.r / 2.0) ? 1.0 : 0.0;
+    }
+
+    // Green channel strobe logic
+    if (strobeRates.g == 0.0) {
+        newState.g = (currentState.g == 0.0) ? 1.0 : 0.0;  // Toggle on silence
+    } else {
+        newState.g = (fmod(time, strobeRates.g) <= strobeRates.g / 2.0) ? 1.0 : 0.0;
+    }
+
+    // Blue channel strobe logic
+    if (strobeRates.b == 0.0) {
+        newState.b = (currentState.b == 0.0) ? 1.0 : 0.0;  // Toggle on silence
+    } else {
+        newState.b = (fmod(time, strobeRates.b) <= strobeRates.b / 2.0) ? 1.0 : 0.0;
+    }
+
+    // Alpha channel strobe logic
+    if (strobeRates.a == 0.0) {
+        newState.a = (currentState.a == 0.0) ? 1.0 : 0.0;  // Toggle on silence
+    } else {
+        newState.a = (fmod(time, strobeRates.a) <= strobeRates.a / 2.0) ? 1.0 : 0.0;
+    }
+
+    // Update state texture (only one thread should do this)
+    if (gid.x == 0 && gid.y == 0) {
+        strobeStateTexture.write(newState, uint2(0, 0));
+    }
+
+    // Apply strobe effect to input pixel
+    float4 inputPixel = inputTexture.read(gid);
+    float4 outputPixel = inputPixel;
+
+    // Channel enable/disable values
+    float red = r ? 1.0 : 0.0;
+    float green = g ? 1.0 : 0.0;
+    float blue = b ? 1.0 : 0.0;
+    float alpha = a ? 1.0 : 0.0;
+
+    // Apply strobe effect per channel
+    outputPixel.r = (newState.r == 0.0) ? inputPixel.r : abs(red - inputPixel.r);
+    outputPixel.g = (newState.g == 0.0) ? inputPixel.g : abs(green - inputPixel.g);
+    outputPixel.b = (newState.b == 0.0) ? inputPixel.b : abs(blue - inputPixel.b);
+    outputPixel.a = (newState.a == 0.0) ? inputPixel.a : abs(alpha - inputPixel.a);
+
+    outputTexture.write(outputPixel, gid);
+}
+
 
 

@@ -240,7 +240,9 @@ class VideoEffectsProcessor: NSObject {
     private func savePhotoToLibrary(_ image: UIImage) {
         // Save photo to Documents directory
         let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
-        let photoURL = documentsURL.appendingPathComponent("FeverDream_Photo_\(Date().timeIntervalSince1970).jpg")
+        let timestamp = Date().timeIntervalSince1970
+        let formattedTimestamp = String(format: "%.3f", timestamp)
+        let photoURL = documentsURL.appendingPathComponent("FeverDream_Photo_\(formattedTimestamp).jpg")
 
         guard let imageData = image.jpegData(compressionQuality: 0.9) else {
             print("📸 Failed to convert image to JPEG")

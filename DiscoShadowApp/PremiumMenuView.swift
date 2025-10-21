@@ -16,14 +16,21 @@ struct PremiumMenuView: View {
                 ScrollView {
                     VStack(spacing: 30) {
                         // Header
-                        VStack(spacing: 10) {
+                        VStack(spacing: 15) {
                             Text("FΣVΣЯ DЯΣΛM")
                                 .font(.system(size: 32, weight: .black, design: .rounded))
                                 .foregroundColor(.white)
+                                .shadow(color: .purple.opacity(0.5), radius: 10, x: 0, y: 0)
 
-                            Text("PREMIUM EFFECTS")
-                                .font(.system(size: 18, weight: .medium, design: .monospaced))
-                                .foregroundColor(.purple)
+                            VStack(spacing: 5) {
+                                Text("PREMIUM EFFECTS")
+                                    .font(.system(size: 20, weight: .bold, design: .rounded))
+                                    .foregroundColor(.white)
+
+                                Text("Unlock advanced visual effects")
+                                    .font(.system(size: 14, weight: .medium))
+                                    .foregroundColor(.white.opacity(0.7))
+                            }
                         }
                         .padding(.top, 20)
 
@@ -67,20 +74,27 @@ struct PremiumMenuView: View {
                             Button(action: {
                                 showingSubscriptionSheet = true
                             }) {
-                                Text("START FREE TRIAL")
-                                    .font(.system(size: 16, weight: .bold, design: .rounded))
-                                    .foregroundColor(.black)
-                                    .frame(maxWidth: .infinity)
-                                    .padding()
-                                    .background(
-                                        LinearGradient(
-                                            colors: [.green, .cyan],
-                                            startPoint: .leading,
-                                            endPoint: .trailing
-                                        )
+                                HStack(spacing: 8) {
+                                    Image(systemName: "play.fill")
+                                        .font(.system(size: 16, weight: .bold))
+                                    Text("START FREE TRIAL")
+                                        .font(.system(size: 16, weight: .bold, design: .rounded))
+                                }
+                                .foregroundColor(.black)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 16)
+                                .background(
+                                    LinearGradient(
+                                        colors: [.green, .cyan],
+                                        startPoint: .leading,
+                                        endPoint: .trailing
                                     )
-                                    .cornerRadius(25)
+                                )
+                                .cornerRadius(25)
+                                .shadow(color: .green.opacity(0.4), radius: 8, x: 0, y: 4)
                             }
+                            .scaleEffect(1.0)
+                            .animation(.spring(response: 0.3, dampingFraction: 0.6), value: showingSubscriptionSheet)
                         }
                         .padding()
                         .background(
@@ -117,9 +131,9 @@ struct PremiumMenuView: View {
                                 .foregroundColor(.white)
 
                             LazyVGrid(columns: [
-                                GridItem(.flexible()),
-                                GridItem(.flexible())
-                            ], spacing: 15) {
+                                GridItem(.flexible(), spacing: 12),
+                                GridItem(.flexible(), spacing: 12)
+                            ], spacing: 16) {
                                 ForEach(PremiumEffect.allCases, id: \.self) { effect in
                                     PremiumEffectCard(
                                         effect: effect,
@@ -133,7 +147,7 @@ struct PremiumMenuView: View {
                                     )
                                 }
                             }
-                            .padding(.horizontal)
+                            .padding(.horizontal, 20)
                         }
 
                         // Trial information
@@ -195,7 +209,7 @@ struct PremiumEffectCard: View {
             VStack(spacing: 12) {
                 // Effect Preview/Icon
                 ZStack {
-                    RoundedRectangle(cornerRadius: 15)
+                    RoundedRectangle(cornerRadius: 18)
                         .fill(
                             LinearGradient(
                                 colors: effect.gradientColors,
@@ -203,45 +217,59 @@ struct PremiumEffectCard: View {
                                 endPoint: .bottomTrailing
                             )
                         )
-                        .frame(height: 100)
+                        .frame(height: 110)
+                        .shadow(color: effect.gradientColors.first?.opacity(0.3) ?? .clear, radius: 8, x: 0, y: 4)
 
                     if isOwned {
-                        VStack {
+                        VStack(spacing: 6) {
                             Image(systemName: "checkmark.circle.fill")
-                                .font(.system(size: 24))
+                                .font(.system(size: 28))
                                 .foregroundColor(.green)
+                                .shadow(color: .black.opacity(0.3), radius: 2, x: 0, y: 1)
                             Text("OWNED")
-                                .font(.system(size: 10, weight: .bold))
+                                .font(.system(size: 11, weight: .bold))
                                 .foregroundColor(.green)
+                                .shadow(color: .black.opacity(0.5), radius: 1, x: 0, y: 1)
                         }
                     } else {
-                        VStack(spacing: 8) {
+                        VStack(spacing: 10) {
                             Image(systemName: effect.iconName)
-                                .font(.system(size: 30))
+                                .font(.system(size: 32, weight: .medium))
                                 .foregroundColor(.white)
+                                .shadow(color: .black.opacity(0.3), radius: 2, x: 0, y: 1)
 
-                            Text("SUBSCRIPTION")
-                                .font(.system(size: 10, weight: .bold))
-                                .foregroundColor(.cyan)
+                            HStack(spacing: 4) {
+                                Image(systemName: "crown.fill")
+                                    .font(.system(size: 10))
+                                Text("PREMIUM")
+                                    .font(.system(size: 10, weight: .bold))
+                            }
+                            .foregroundColor(.yellow)
+                            .shadow(color: .black.opacity(0.5), radius: 1, x: 0, y: 1)
                         }
                     }
                 }
 
-                VStack(spacing: 4) {
+                VStack(spacing: 6) {
                     Text(effect.name)
-                        .font(.system(size: 14, weight: .bold))
+                        .font(.system(size: 15, weight: .bold, design: .rounded))
                         .foregroundColor(.white)
 
                     Text(effect.description)
-                        .font(.system(size: 11))
-                        .foregroundColor(.white.opacity(0.7))
+                        .font(.system(size: 12))
+                        .foregroundColor(.white.opacity(0.8))
                         .multilineTextAlignment(.center)
-                        .lineLimit(2)
+                        .lineLimit(3)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
+                .padding(.horizontal, 4)
             }
+            .padding(.bottom, 8)
         }
         .disabled(isOwned)
-        .opacity(isOwned ? 0.7 : 1.0)
+        .opacity(isOwned ? 0.8 : 1.0)
+        .scaleEffect(isOwned ? 0.95 : 1.0)
+        .animation(.easeInOut(duration: 0.2), value: isOwned)
     }
 }
 
@@ -249,18 +277,24 @@ struct PremiumEffectCard: View {
 
 enum PremiumEffect: String, CaseIterable, Identifiable {
     case crtDitherGlitch = "crt_dither_glitch_effect"
+    case badTV = "bad_tv_effect"
+    case strobe = "strobe_effect"
 
     var id: String { rawValue }
 
     var name: String {
         switch self {
         case .crtDitherGlitch: return "HYPNOTIST"
+        case .badTV: return "BAD TV"
+        case .strobe: return "STROBE"
         }
     }
 
     var description: String {
         switch self {
         case .crtDitherGlitch: return "Hypnotic waves, fast strobing colors, and audio-reactive image shake"
+        case .badTV: return "Infinite feedback loops with vintage TV static, creating hypnotic recursive visuals"
+        case .strobe: return "Audio-reactive RGB color channel strobing with independent frequency control"
         }
     }
 
@@ -272,12 +306,16 @@ enum PremiumEffect: String, CaseIterable, Identifiable {
     var iconName: String {
         switch self {
         case .crtDitherGlitch: return "video.and.waveform.fill"
+        case .badTV: return "tv.fill"
+        case .strobe: return "flashlight.on.fill"
         }
     }
 
     var gradientColors: [Color] {
         switch self {
         case .crtDitherGlitch: return [.red, .black, .gray]
+        case .badTV: return [.white, .gray, .black, .blue]
+        case .strobe: return [.red, .green, .blue, .white]
         }
     }
 }

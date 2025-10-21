@@ -12,10 +12,13 @@ class MetalRenderer: NSObject {
     private var discoComputePipelineState: MTLComputePipelineState?
     private var crtDitherPipelineState: MTLComputePipelineState?
     private var crtSlitScanPipelineState: MTLComputePipelineState?
+    private var badTVPipelineState: MTLComputePipelineState?
+    private var strobePipelineState: MTLComputePipelineState?
 
     private var textureCache: CVMetalTextureCache?
     private var outputTexture: MTLTexture?
     private var feedbackTexture: MTLTexture? // For feedback effect
+    private var strobeStateTexture: MTLTexture? // For strobe state persistence
 
     // Slit scan frame buffer for CRT effect
     private var frameBuffer: [MTLTexture] = []
@@ -93,7 +96,31 @@ class MetalRenderer: NSObject {
             print("⚠️ Could not create CRT Slit Scan compute pipeline state: \(error)")
         }
 
+        // Set up Bad TV effect (Premium)
+        guard let badTVFunction = library.makeFunction(name: "badTVEffect") else {
+            print("⚠️ Bad TV effect not available")
+            return
+        }
 
+        do {
+            badTVPipelineState = try device.makeComputePipelineState(function: badTVFunction)
+            print("✅ Bad TV pipeline created successfully")
+        } catch {
+            print("⚠️ Could not create Bad TV compute pipeline state: \\(error)")
+        }
+
+        // Set up Strobe effect (Premium)
+        guard let strobeFunction = library.makeFunction(name: "strobeEffect") else {
+            print("⚠️ Strobe effect not available")
+            return
+        }
+
+        do {
+            strobePipelineState = try device.makeComputePipelineState(function: strobeFunction)
+            print("✅ Strobe pipeline created successfully")
+        } catch {
+            print("⚠️ Could not create Strobe compute pipeline state: \\(error)")
+        }
 
         // Set up render pipeline for display
         guard let vertexFunction = library.makeFunction(name: "vertexShader"),
@@ -135,6 +162,12 @@ class MetalRenderer: NSObject {
             case .crtDitherGlitch:
                 selectedPipelineState = crtSlitScanPipelineState ?? crtDitherPipelineState
                 print("🎨 MetalRenderer: Selected CRT Slit Scan pipeline")
+            case .badTV:
+                selectedPipelineState = badTVPipelineState
+                print("🎨 MetalRenderer: Selected Bad TV pipeline")
+            case .strobe:
+                selectedPipelineState = strobePipelineState
+                print("🎨 MetalRenderer: Selected Strobe pipeline")
             }
         } else {
             // Use default Disco Shadow effect
@@ -198,6 +231,18 @@ class MetalRenderer: NSObject {
             feedbackTexture = device.makeTexture(descriptor: textureDescriptor)
         }
 
+        // Create strobe state texture (1x1 for state persistence)
+        if strobeStateTexture == nil {
+            let textureDescriptor = MTLTextureDescriptor.texture2DDescriptor(
+                pixelFormat: .bgra8Unorm,
+                width: 1,
+                height: 1,
+                mipmapped: false
+            )
+            textureDescriptor.usage = [.shaderWrite, .shaderRead]
+            strobeStateTexture = device.makeTexture(descriptor: textureDescriptor)
+        }
+
         guard let outputTexture = outputTexture else {
             return nil
         }
@@ -215,6 +260,16 @@ class MetalRenderer: NSObject {
         computeEncoder.setComputePipelineState(pipelineState)
         computeEncoder.setTexture(inputTexture, index: 0)
         computeEncoder.setTexture(outputTexture, index: 1)
+
+        // For Bad TV effect, pass feedback texture as texture index 2
+        if let premiumEffect = activePremiumEffect, premiumEffect == .badTV {
+            computeEncoder.setTexture(feedbackTexture, index: 2)
+        }
+
+        // For Strobe effect, pass strobe state texture as texture index 2
+        if let premiumEffect = activePremiumEffect, premiumEffect == .strobe {
+            computeEncoder.setTexture(strobeStateTexture, index: 2)
+        }
 
 
         var uniforms = DiscoUniforms(
@@ -249,6 +304,16 @@ class MetalRenderer: NSObject {
         computeEncoder.dispatchThreadgroups(threadgroupsPerGrid, threadsPerThreadgroup: threadsPerGroup)
         computeEncoder.endEncoding()
 
+        // For Bad TV effect, copy output to feedback texture for next frame
+        if let premiumEffect = activePremiumEffect, premiumEffect == .badTV, let feedbackTexture = feedbackTexture {
+            guard let blitEncoder = commandBuffer.makeBlitCommandEncoder() else {
+                commandBuffer.commit()
+                time += 0.016
+                return outputTexture
+            }
+            blitEncoder.copy(from: outputTexture, to: feedbackTexture)
+            blitEncoder.endEncoding()
+        }
 
         commandBuffer.commit()
 

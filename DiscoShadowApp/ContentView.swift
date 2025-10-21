@@ -6,7 +6,6 @@ import UIKit
 
 struct ContentView: View {
     @StateObject private var cameraManager = CameraManager()
-    @State private var showMenu = false
     @State private var showVideoGallery = false
     @State private var currentZoomFactor: CGFloat = 1.0
     @State private var captureMode: CaptureMode = .video
@@ -15,6 +14,106 @@ struct ContentView: View {
     @StateObject private var storeManager = StoreManager()
     @State private var selectedEffect: PremiumEffect? = nil
     @State private var showEffectSelector = false
+    @State private var currentEffectIndex = 0
+    @State private var latestMediaThumbnail: UIImage?
+    @State private var hasMediaFiles = false
+
+    // All available effects (including default as nil)
+    private var allEffects: [PremiumEffect?] {
+        [nil] + PremiumEffect.allCases
+    }
+
+    // Effect cycling functions
+    private func nextEffect() {
+        currentEffectIndex = (currentEffectIndex + 1) % allEffects.count
+        selectedEffect = allEffects[currentEffectIndex]
+    }
+
+    private func previousEffect() {
+        currentEffectIndex = (currentEffectIndex - 1 + allEffects.count) % allEffects.count
+        selectedEffect = allEffects[currentEffectIndex]
+    }
+
+    // Load latest media thumbnail
+    private func loadLatestMediaThumbnail() {
+        DispatchQueue.global(qos: .utility).async {
+            let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+
+            do {
+                let fileURLs = try FileManager.default.contentsOfDirectory(
+                    at: documentsURL,
+                    includingPropertiesForKeys: [.contentModificationDateKey],
+                    options: [.skipsHiddenFiles, .skipsPackageDescendants]
+                )
+
+                // Filter for Fever Dream files and sort by filename (newest first)
+                let feverDreamFiles = fileURLs.filter { url in
+                    let fileName = url.lastPathComponent
+                    return fileName.hasPrefix("FeverDream_") && (fileName.hasSuffix(".mp4") || fileName.hasSuffix(".jpg"))
+                }.sorted { $0.lastPathComponent > $1.lastPathComponent }
+
+                DispatchQueue.main.async {
+                    self.hasMediaFiles = !feverDreamFiles.isEmpty
+                }
+
+                guard let latestFile = feverDreamFiles.first else {
+                    DispatchQueue.main.async {
+                        self.latestMediaThumbnail = nil
+                    }
+                    return
+                }
+
+                let isVideo = latestFile.pathExtension.lowercased() == "mp4"
+                let thumbnailImage: UIImage?
+
+                if isVideo {
+                    thumbnailImage = generateVideoThumbnail(from: latestFile)
+                } else {
+                    thumbnailImage = loadImageThumbnail(from: latestFile)
+                }
+
+                DispatchQueue.main.async {
+                    self.latestMediaThumbnail = thumbnailImage
+                }
+
+            } catch {
+                print("Error loading latest media: \(error.localizedDescription)")
+                DispatchQueue.main.async {
+                    self.hasMediaFiles = false
+                    self.latestMediaThumbnail = nil
+                }
+            }
+        }
+    }
+
+    private func generateVideoThumbnail(from videoURL: URL) -> UIImage? {
+        let asset = AVAsset(url: videoURL)
+        let imageGenerator = AVAssetImageGenerator(asset: asset)
+        imageGenerator.appliesPreferredTrackTransform = true
+        imageGenerator.maximumSize = CGSize(width: 65, height: 65)
+
+        do {
+            let cgImage = try imageGenerator.copyCGImage(at: .zero, actualTime: nil)
+            return UIImage(cgImage: cgImage)
+        } catch {
+            return nil
+        }
+    }
+
+    private func loadImageThumbnail(from url: URL) -> UIImage? {
+        guard let imageSource = CGImageSourceCreateWithURL(url as CFURL, nil),
+              let cgImage = CGImageSourceCreateImageAtIndex(imageSource, 0, nil) else {
+            return nil
+        }
+
+        let targetSize = CGSize(width: 65, height: 65)
+        let renderer = UIGraphicsImageRenderer(size: targetSize)
+
+        return renderer.image { _ in
+            let image = UIImage(cgImage: cgImage)
+            image.draw(in: CGRect(origin: .zero, size: targetSize))
+        }
+    }
 
     enum CaptureMode: String, CaseIterable {
         case photo = "PHOTO"
@@ -24,56 +123,110 @@ struct ContentView: View {
     // Capture button for both photo and video
     var captureButton: some View {
         Button(action: {
-            switch captureMode {
-            case .photo:
-                cameraManager.capturePhoto()
-            case .video:
-                if cameraManager.isRecording {
-                    cameraManager.stopRecording()
-                } else {
-                    cameraManager.startRecording()
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                switch captureMode {
+                case .photo:
+                    cameraManager.capturePhoto()
+                case .video:
+                    if cameraManager.isRecording {
+                        cameraManager.stopRecording()
+                    } else {
+                        cameraManager.startRecording()
+                    }
                 }
             }
         }) {
             ZStack {
+                // Outer ring with gradient animation
                 Circle()
-                    .foregroundColor(.white)
+                    .fill(
+                        cameraManager.isRecording ?
+                        LinearGradient(colors: [Color(red: 1.0, green: 0.0, blue: 1.0), Color(red: 0.0, green: 1.0, blue: 1.0)], startPoint: .topLeading, endPoint: .bottomTrailing) :
+                        LinearGradient(colors: [.white], startPoint: .center, endPoint: .center)
+                    )
                     .frame(width: 80, height: 80)
+                    .scaleEffect(cameraManager.isRecording ? 1.1 : 1.0)
+                    .opacity(cameraManager.isRecording ? 0.9 : 1.0)
 
                 if captureMode == .video {
                     Circle()
-                        .foregroundColor(cameraManager.isRecording ? .red : .white)
+                        .fill(
+                            cameraManager.isRecording ?
+                            LinearGradient(colors: [Color(red: 1.0, green: 0.0, blue: 1.0), .red], startPoint: .topLeading, endPoint: .bottomTrailing) :
+                            LinearGradient(colors: [.white], startPoint: .center, endPoint: .center)
+                        )
                         .frame(width: 65, height: 65)
                         .overlay(
                             Circle()
                                 .stroke(Color.black.opacity(0.8), lineWidth: 2)
                         )
+                        .scaleEffect(cameraManager.isRecording ? 0.9 : 1.0)
 
                     if cameraManager.isRecording {
-                        RoundedRectangle(cornerRadius: 4)
+                        RoundedRectangle(cornerRadius: 6)
                             .foregroundColor(.white)
-                            .frame(width: 25, height: 25)
+                            .frame(width: 28, height: 28)
+                            .shadow(color: .black.opacity(0.3), radius: 2, x: 0, y: 1)
                     }
                 } else {
-                    // Photo mode - simple white circle
+                    // Photo mode - simple white circle with subtle animation
                     Circle()
                         .stroke(Color.black.opacity(0.8), lineWidth: 2)
                         .frame(width: 65, height: 65)
+                        .scaleEffect(1.0)
+                }
+
+                // Recording pulse effect with gradient
+                if cameraManager.isRecording {
+                    Circle()
+                        .stroke(
+                            LinearGradient(colors: [Color(red: 0.0, green: 1.0, blue: 1.0).opacity(0.8), Color(red: 1.0, green: 0.0, blue: 1.0).opacity(0.8)], startPoint: .topLeading, endPoint: .bottomTrailing),
+                            lineWidth: 3
+                        )
+                        .frame(width: 90, height: 90)
+                        .scaleEffect(1.2)
+                        .opacity(0.7)
+                        .animation(
+                            .easeInOut(duration: 1.0)
+                            .repeatForever(autoreverses: true),
+                            value: cameraManager.isRecording
+                        )
                 }
             }
         }
+        .animation(.spring(response: 0.4, dampingFraction: 0.7), value: cameraManager.isRecording)
+        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: captureMode)
     }
 
-    // Media thumbnail preview (placeholder for now)
+    // Media thumbnail preview showing latest captured media
     var mediaThumbnail: some View {
-        RoundedRectangle(cornerRadius: 10)
-            .frame(width: 60, height: 60, alignment: .center)
-            .foregroundColor(.gray.opacity(0.3))
-            .overlay(
-                Image(systemName: captureMode == .photo ? "photo.fill" : "video.fill")
+        ZStack {
+            RoundedRectangle(cornerRadius: 12)
+                .frame(width: 65, height: 65, alignment: .center)
+                .foregroundColor(.gray.opacity(0.3))
+
+            if let thumbnail = latestMediaThumbnail {
+                Image(uiImage: thumbnail)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    .frame(width: 65, height: 65)
+                    .clipped()
+                    .cornerRadius(12)
+            } else {
+                Image(systemName: hasMediaFiles ? "photo.fill" : (captureMode == .photo ? "photo.fill" : "video.fill"))
                     .foregroundColor(.white)
-                    .font(.title3)
-            )
+                    .font(.system(size: 20))
+            }
+        }
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(
+                    latestMediaThumbnail != nil ?
+                    LinearGradient(colors: [Color(red: 1.0, green: 0.0, blue: 1.0).opacity(0.6), Color(red: 0.0, green: 1.0, blue: 1.0).opacity(0.6)], startPoint: .topLeading, endPoint: .bottomTrailing) :
+                    LinearGradient(colors: [.white.opacity(0.2)], startPoint: .center, endPoint: .center),
+                    lineWidth: latestMediaThumbnail != nil ? 2 : 1
+                )
+        )
     }
 
     // Camera flip button
@@ -82,213 +235,253 @@ struct ContentView: View {
             cameraManager.switchCamera()
         }) {
             Circle()
-                .foregroundColor(Color.gray.opacity(0.2))
-                .frame(width: 45, height: 45, alignment: .center)
+                .fill(
+                    LinearGradient(colors: [Color(red: 1.0, green: 0.0, blue: 1.0).opacity(0.3), Color(red: 0.0, green: 1.0, blue: 1.0).opacity(0.3)], startPoint: .topLeading, endPoint: .bottomTrailing)
+                )
+                .frame(width: 50, height: 50, alignment: .center)
+                .overlay(
+                    Circle()
+                        .stroke(
+                            LinearGradient(colors: [Color(red: 1.0, green: 0.0, blue: 1.0).opacity(0.6), Color(red: 0.0, green: 1.0, blue: 1.0).opacity(0.6)], startPoint: .topLeading, endPoint: .bottomTrailing),
+                            lineWidth: 1
+                        )
+                )
                 .overlay(
                     Image(systemName: "camera.rotate.fill")
                         .foregroundColor(.white)
+                        .font(.system(size: 18))
                 )
         }
-        .disabled(cameraManager.isRecording)
-        .opacity(cameraManager.isRecording ? 0.5 : 1.0)
+        .disabled(cameraManager.isRecording || cameraManager.isSwitchingCamera)
+        .opacity((cameraManager.isRecording || cameraManager.isSwitchingCamera) ? 0.5 : 1.0)
+        .scaleEffect((cameraManager.isRecording || cameraManager.isSwitchingCamera) ? 0.9 : 1.0)
+        .animation(.easeInOut(duration: 0.2), value: cameraManager.isRecording || cameraManager.isSwitchingCamera)
     }
+
+    // Loading screen view
+    var loadingView: some View {
+        LoadingScreenView()
+            .onAppear {
+                // Simulate app initialization time
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                    withAnimation(.easeInOut(duration: 0.8)) {
+                        isAppReady = true
+                    }
+                }
+            }
+    }
+
+    // Main content view with camera and controls
+    var mainContentView: some View {
+        GeometryReader { reader in
+            ZStack {
+                Color.black.edgesIgnoringSafeArea(.all)
+
+                VStack {
+                    topBarView
+                    cameraPreviewWithGestures(reader: reader)
+                    modeSwitcherView
+                    effectsSelectorView
+                    cameraControlsView
+                }
+            }
+        }
+    }
+
+    // Top navigation bar
+    var topBarView: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Spacer()
+                Text("FΣVΣЯ DЯΣΛМ")
+                    .font(.system(size: 18, weight: .medium, design: .monospaced))
+                    .foregroundColor(.white)
+                Spacer()
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 15)
+        }
+        .zIndex(100) // Ensure top bar stays on top
+    }
+
+    // Camera preview with gestures
+    func cameraPreviewWithGestures(reader: GeometryProxy) -> some View {
+        CameraPreviewView(cameraManager: cameraManager)
+            .id("cameraPreview") // Give stable identity
+            .gesture(
+                SimultaneousGesture(
+                    // Vertical drag for zoom
+                    DragGesture().onChanged({ (val) in
+                        let percentage: CGFloat = -(val.translation.height / reader.size.height)
+                        let calc = currentZoomFactor + percentage
+                        let zoomFactor: CGFloat = min(max(calc, 1), 5)
+                        currentZoomFactor = zoomFactor
+                        cameraManager.setZoom(zoomFactor)
+                    }),
+                    // Pinch gesture for zoom
+                    MagnificationGesture()
+                        .onChanged({ magnification in
+                            let newZoom = currentZoomFactor * magnification
+                            let clampedZoom = min(max(newZoom, 1), 5)
+                            cameraManager.setZoom(clampedZoom)
+                        })
+                        .onEnded({ magnification in
+                            // Update the stored zoom factor when gesture ends
+                            let newZoom = currentZoomFactor * magnification
+                            currentZoomFactor = min(max(newZoom, 1), 5)
+                        })
+                )
+            )
+    }
+
+    // Enhanced mode switcher between photo and video
+    var modeSwitcherView: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 0) {
+                ForEach(CaptureMode.allCases, id: \.self) { mode in
+                    Button(action: {
+                        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                            captureMode = mode
+                        }
+                    }) {
+                        VStack(spacing: 6) {
+                            // Icon for each mode
+                            Image(systemName: mode == .photo ? "camera.fill" : "video.fill")
+                                .font(.system(size: 18, weight: .medium))
+                                .foregroundColor(captureMode == mode ? .white : .white.opacity(0.4))
+
+                            // Mode label
+                            Text(mode.rawValue)
+                                .font(.system(size: 12, weight: captureMode == mode ? .semibold : .medium, design: .rounded))
+                                .foregroundColor(captureMode == mode ? .white : .white.opacity(0.4))
+                        }
+                        .frame(width: 80, height: 60)
+                        .background(
+                            RoundedRectangle(cornerRadius: 16)
+                                .fill(
+                                    captureMode == mode ?
+                                    LinearGradient(colors: [Color(red: 1.0, green: 0.0, blue: 1.0).opacity(0.3), Color(red: 0.0, green: 1.0, blue: 1.0).opacity(0.3)], startPoint: .topLeading, endPoint: .bottomTrailing) :
+                                    LinearGradient(colors: [Color.clear], startPoint: .center, endPoint: .center)
+                                )
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 16)
+                                        .stroke(
+                                            captureMode == mode ?
+                                            LinearGradient(colors: [Color(red: 1.0, green: 0.0, blue: 1.0), Color(red: 0.0, green: 1.0, blue: 1.0)], startPoint: .topLeading, endPoint: .bottomTrailing) :
+                                            LinearGradient(colors: [Color.clear], startPoint: .center, endPoint: .center),
+                                            lineWidth: captureMode == mode ? 2 : 0
+                                        )
+                                )
+                        )
+                        .scaleEffect(captureMode == mode ? 1.05 : 1.0)
+                    }
+                    .disabled(cameraManager.isRecording)
+                    .opacity(cameraManager.isRecording ? 0.5 : 1.0)
+                    .animation(.spring(response: 0.3, dampingFraction: 0.7), value: captureMode)
+                    .animation(.easeInOut(duration: 0.2), value: cameraManager.isRecording)
+                }
+            }
+            .padding(.vertical, 15)
+            .padding(.horizontal, 20)
+        }
+    }
+
+    // Effects selector interface
+    var effectsSelectorView: some View {
+        VStack(spacing: 0) {
+            VStack(spacing: 8) {
+                HStack {
+                    Button(action: {
+                        print("🎨 Effects button tapped!")
+                        showEffectSelector.toggle()
+                    }) {
+                        HStack(spacing: 10) {
+                            Spacer()
+
+                            VStack(alignment: .center, spacing: 2) {
+                                Text(selectedEffect?.name ?? "FEVER DREAM")
+                                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                                    .foregroundColor(Color(red: 0.0, green: 1.0, blue: 1.0))
+                            }
+
+                            Spacer()
+
+                            Image(systemName: "chevron.up")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundColor(.white.opacity(0.6))
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 12)
+                        .background(
+                            RoundedRectangle(cornerRadius: 25)
+                                .fill(Color.black.opacity(0.6))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 25)
+                                        .stroke(
+                                            LinearGradient(colors: [Color(red: 1.0, green: 0.0, blue: 1.0), Color(red: 0.0, green: 1.0, blue: 1.0)], startPoint: .leading, endPoint: .trailing),
+                                            lineWidth: 1.5
+                                        )
+                                )
+                        )
+                    }
+                    .disabled(cameraManager.isRecording)
+                    .scaleEffect(cameraManager.isRecording ? 0.95 : 1.0)
+                    .opacity(cameraManager.isRecording ? 0.6 : 1.0)
+                    .animation(.easeInOut(duration: 0.2), value: cameraManager.isRecording)
+                }
+            }
+            .padding(.vertical, 15)
+            .padding(.horizontal, 20)
+        }
+    }
+
+    // Camera controls at bottom
+    var cameraControlsView: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Button(action: {
+                    showVideoGallery = true
+                }) {
+                    mediaThumbnail
+                }
+
+                Spacer()
+
+                captureButton
+
+                Spacer()
+
+                flipCameraButton
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 20)
+        }
+    }
+
 
     var body: some View {
         ZStack {
             if !isAppReady {
-                LoadingScreenView()
-                    .onAppear {
-                        // Simulate app initialization time
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-                            withAnimation(.easeInOut(duration: 0.8)) {
-                                isAppReady = true
-                            }
-                        }
-                    }
+                loadingView
             } else {
-                GeometryReader { reader in
-                ZStack {
-                    Color.black.edgesIgnoringSafeArea(.all)
-
-                    VStack {
-                        // Always-visible top bar with app title and menu - independent of camera
-                        HStack {
-                            Text("FΣVΣЯ DЯΣΛМ")
-                                .font(.system(size: 18, weight: .medium, design: .monospaced))
-                                .foregroundColor(.white)
-
-                            Spacer()
-
-                            Button(action: {
-                                withAnimation(.easeInOut(duration: 0.3)) {
-                                    showMenu.toggle()
-                                }
-                            }) {
-                                ZStack {
-                                    Circle()
-                                        .fill(Color.white.opacity(0.15))
-                                        .frame(width: 40, height: 40)
-
-                                    Image(systemName: "line.3.horizontal")
-                                        .font(.title2)
-                                        .fontWeight(.medium)
-                                        .foregroundColor(.white)
-                                }
-                            }
-                        }
-                        .padding(.horizontal, 20)
-                        .padding(.top, 10)
-                        .zIndex(100) // Ensure top bar stays on top
-
-                        // Camera preview with zoom gesture - isolated from top UI
-                        CameraPreviewView(cameraManager: cameraManager)
-                            .id("cameraPreview") // Give stable identity
-                            .gesture(
-                                DragGesture().onChanged({ (val) in
-                                    // Only accept vertical drag for zoom
-                                    if abs(val.translation.height) > abs(val.translation.width) {
-                                        // Get the percentage of vertical screen space covered by drag
-                                        let percentage: CGFloat = -(val.translation.height / reader.size.height)
-                                        // Calculate new zoom factor
-                                        let calc = currentZoomFactor + percentage
-                                        // Limit zoom factor to a maximum of 5x and a minimum of 1x
-                                        let zoomFactor: CGFloat = min(max(calc, 1), 5)
-                                        // Store the newly calculated zoom factor
-                                        currentZoomFactor = zoomFactor
-                                        // Apply zoom to camera
-                                        cameraManager.setZoom(zoomFactor)
-                                    }
-                                })
-                            )
-
-                        // Mode switcher
-                        HStack(spacing: 30) {
-                            ForEach(CaptureMode.allCases, id: \.self) { mode in
-                                Button(action: {
-                                    withAnimation(.easeInOut(duration: 0.2)) {
-                                        captureMode = mode
-                                    }
-                                }) {
-                                    Text(mode.rawValue)
-                                        .font(.system(size: 14, weight: captureMode == mode ? .medium : .regular, design: .monospaced))
-                                        .foregroundColor(captureMode == mode ? .white : .white.opacity(0.5))
-                                }
-                                .disabled(cameraManager.isRecording)
-                            }
-                        }
-                        .padding(.vertical, 10)
-
-                        // Effects selector
-                        HStack {
-                            Button(action: {
-                                print("🎨 Effects button tapped!")
-                                showEffectSelector.toggle()
-                            }) {
-                                HStack(spacing: 8) {
-                                    Image(systemName: selectedEffect == nil ? "wand.and.stars" : selectedEffect!.iconName)
-                                        .font(.system(size: 16))
-                                    Text(selectedEffect?.name ?? "DISCO SHADOW")
-                                        .font(.system(size: 12, weight: .medium, design: .monospaced))
-                                }
-                                .foregroundColor(selectedEffect == nil ? .white : .yellow)
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 8)
-                                .background(Color.black.opacity(0.3))
-                                .cornerRadius(20)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 20)
-                                        .stroke(selectedEffect == nil ? Color.white.opacity(0.3) : Color.yellow.opacity(0.6), lineWidth: 1)
-                                )
-                            }
-                            .disabled(cameraManager.isRecording)
-                        }
-                        .padding(.vertical, 5)
-
-                        // Professional camera controls at bottom
-                        HStack {
-                            Button(action: {
-                                showVideoGallery = true
-                            }) {
-                                mediaThumbnail
-                            }
-
-                            Spacer()
-
-                            captureButton
-
-                            Spacer()
-
-                            flipCameraButton
-                        }
-                        .padding(.horizontal, 20)
-                        .padding(.bottom, 30)
-                    }
-                }
-            }
-
-            // Simple Menu Overlay
-            if showMenu {
-                VStack {
-                    Spacer()
-
-                    HStack {
-                        Spacer()
-
-                        VStack(spacing: 0) {
-                            // Menu Items
-                            MenuButton(icon: "square.and.arrow.down", title: "Download Videos", action: {
-                                showVideoGallery = true
-                                showMenu = false
-                            })
-                            MenuButton(icon: "crown.fill", title: storeManager.hasSubscription ? "Premium Effects" : "Go Premium", action: {
-                                showPremiumMenu = true
-                                showMenu = false
-                            })
-
-                            MenuButton(icon: "gearshape", title: "Settings", action: {
-                                // TODO: Open Settings
-                                showMenu = false
-                            })
-
-                            MenuButton(icon: "questionmark.circle", title: "Help & Tips", action: {
-                                // TODO: Open Help
-                                showMenu = false
-                            })
-
-                            MenuButton(icon: "star", title: "Rate App", action: {
-                                // TODO: Open App Store Rating
-                                showMenu = false
-                            })
-
-                            MenuButton(icon: "xmark", title: "Close", action: {
-                                withAnimation(.easeInOut(duration: 0.3)) {
-                                    showMenu = false
-                                }
-                            })
-                        }
-                        .background(Color.black.opacity(0.9))
-                        .cornerRadius(20)
-                        .padding(.trailing, 20)
-                        .padding(.bottom, 120)
-                    }
-                }
-                .background(Color.black.opacity(0.3))
-                .ignoresSafeArea()
-                .zIndex(1000) // Force menu to appear on top
-                .onTapGesture {
-                    withAnimation(.easeInOut(duration: 0.3)) {
-                        showMenu = false
-                    }
-                }
-                }
+                mainContentView
             }
         }
         .onAppear {
             cameraManager.startSession()
             cameraManager.setStoreManager(storeManager)
+            loadLatestMediaThumbnail()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .init("MediaCaptured"))) { _ in
+            // Refresh thumbnail when new media is captured
+            loadLatestMediaThumbnail()
         }
         .onChange(of: selectedEffect) { newEffect in
             cameraManager.setSelectedEffect(newEffect)
+            // Sync currentEffectIndex with selectedEffect
+            if let index = allEffects.firstIndex(where: { $0 == newEffect }) {
+                currentEffectIndex = index
+            }
         }
         .onDisappear {
             cameraManager.stopSession()
@@ -450,32 +643,6 @@ class CameraPreviewUIView: UIView, AVCaptureVideoDataOutputSampleBufferDelegate 
     }
 }
 
-struct MenuButton: View {
-    let icon: String
-    let title: String
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 15) {
-                Image(systemName: icon)
-                    .font(.system(size: 18, weight: .medium))
-                    .foregroundColor(.white)
-                    .frame(width: 25, height: 25)
-
-                Text(title)
-                    .font(.system(size: 16, weight: .medium, design: .rounded))
-                    .foregroundColor(.white)
-
-                Spacer()
-            }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 15)
-            .background(Color.clear)
-        }
-        .buttonStyle(PlainButtonStyle())
-    }
-}
 
 struct LoadingScreenView: View {
     var body: some View {
@@ -524,10 +691,10 @@ struct EffectsSelectorView: View {
 
                         // Default effect
                         EffectOptionView(
-                            name: "DISCO SHADOW",
+                            name: "FEVER DREAM",
                             description: "Classic retro vibes with audio-reactive colors",
                             iconName: "wand.and.stars",
-                            gradientColors: [.purple, .pink, .blue],
+                            gradientColors: [Color(red: 1.0, green: 0.0, blue: 1.0), Color(red: 0.0, green: 1.0, blue: 1.0)],
                             isSelected: selectedEffect == nil,
                             isOwned: true,
                             action: {
@@ -582,35 +749,6 @@ struct EffectOptionView: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 15) {
-                // Effect icon with gradient
-                ZStack {
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(
-                            LinearGradient(
-                                colors: gradientColors,
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .frame(width: 50, height: 50)
-
-                    if isOwned {
-                        Image(systemName: iconName)
-                            .font(.system(size: 20))
-                            .foregroundColor(.white)
-                    } else {
-                        Image(systemName: "lock.fill")
-                            .font(.system(size: 16))
-                            .foregroundColor(.white)
-                    }
-
-                    if isSelected {
-                        RoundedRectangle(cornerRadius: 12)
-                            .stroke(Color.yellow, lineWidth: 2)
-                            .frame(width: 50, height: 50)
-                    }
-                }
-
                 VStack(alignment: .leading, spacing: 4) {
                     Text(name)
                         .font(.system(size: 16, weight: .medium))
@@ -624,24 +762,27 @@ struct EffectOptionView: View {
 
                 Spacer()
 
-                if !isOwned {
-                    Image(systemName: "crown.fill")
-                        .foregroundColor(.yellow)
-                        .font(.system(size: 16))
-                }
-
                 if isSelected {
                     Image(systemName: "checkmark.circle.fill")
-                        .foregroundColor(.green)
+                        .foregroundColor(Color(red: 0.0, green: 1.0, blue: 1.0))
                         .font(.system(size: 20))
                 }
             }
             .padding()
-            .background(Color.white.opacity(isSelected ? 0.1 : 0.05))
+            .background(
+                isSelected ?
+                LinearGradient(colors: [Color(red: 1.0, green: 0.0, blue: 1.0).opacity(0.2), Color(red: 0.0, green: 1.0, blue: 1.0).opacity(0.2)], startPoint: .leading, endPoint: .trailing) :
+                LinearGradient(colors: [Color.white.opacity(0.05)], startPoint: .center, endPoint: .center)
+            )
             .cornerRadius(16)
             .overlay(
                 RoundedRectangle(cornerRadius: 16)
-                    .stroke(isSelected ? Color.yellow.opacity(0.5) : Color.clear, lineWidth: 1)
+                    .stroke(
+                        isSelected ?
+                        LinearGradient(colors: [Color(red: 1.0, green: 0.0, blue: 1.0), Color(red: 0.0, green: 1.0, blue: 1.0)], startPoint: .leading, endPoint: .trailing) :
+                        LinearGradient(colors: [Color.clear], startPoint: .center, endPoint: .center),
+                        lineWidth: isSelected ? 2 : 0
+                    )
             )
         }
         .buttonStyle(PlainButtonStyle())

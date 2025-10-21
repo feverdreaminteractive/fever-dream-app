@@ -10,18 +10,12 @@ class StoreManager: NSObject, ObservableObject {
     @Published var errorMessage: String?
 
     private let productIdentifiers = Set([
-        "fever_dream_subscription_monthly",
-        // Individual effects are no longer sold separately - subscription only
-        "crt_dither_glitch_effect",
-        "kaleidoscope_effect",
-        "time_warp_effect",
-        "neon_glow_effect"
+        "fever_dream_subscription_monthly"
+        // Note: Individual effects no longer sold separately - subscription only
     ])
 
     var hasSubscription: Bool {
-        // Disable temporary subscription to fix audio engine crash
-        return false
-        // purchasedProducts.contains("fever_dream_subscription_monthly")
+        return purchasedProducts.contains("fever_dream_subscription_monthly")
     }
 
     var ownedEffects: Set<String> {
@@ -36,6 +30,7 @@ class StoreManager: NSObject, ObservableObject {
         super.init()
         SKPaymentQueue.default().add(self)
         loadPurchasedProducts()
+        startTransactionObserver()
     }
 
     deinit {
@@ -134,11 +129,25 @@ class StoreManager: NSObject, ObservableObject {
     }
 
     func subscriptionProduct() -> Product? {
-        return products.first { $0.id == "fever_dream_subscription_yearly" }
+        return products.first { $0.id == "fever_dream_subscription_monthly" }
     }
 
     func canUseEffect(_ effect: PremiumEffect) -> Bool {
         return hasSubscription || ownedEffects.contains(effect.id)
+    }
+
+    // Monitor subscription status changes
+    func startTransactionObserver() {
+        Task {
+            for await result in Transaction.updates {
+                do {
+                    let transaction = try checkVerified(result)
+                    await updatePurchasedProducts()
+                } catch {
+                    print("Transaction verification failed: \(error)")
+                }
+            }
+        }
     }
 }
 
@@ -167,15 +176,16 @@ struct SubscriptionPurchaseSheet: View {
                 VStack(spacing: 30) {
                     // Header
                     VStack(spacing: 15) {
-                        Image(systemName: "crown.fill")
-                            .font(.system(size: 60))
-                            .foregroundColor(.yellow)
+                        Text("FΣVΣЯ DЯΣΛМ")
+                            .font(.system(size: 32, weight: .black, design: .rounded))
+                            .foregroundColor(.white)
+                            .shadow(color: Color(red: 1.0, green: 0.0, blue: 1.0).opacity(0.5), radius: 10, x: 0, y: 0)
 
-                        Text("PREMIUM SUBSCRIPTION")
+                        Text("PREMIUM EFFECTS")
                             .font(.system(size: 24, weight: .bold, design: .rounded))
                             .foregroundColor(.white)
 
-                        Text("Unlock all premium effects and get future releases")
+                        Text("Unlock all premium effects with free trial")
                             .font(.system(size: 16))
                             .foregroundColor(.white.opacity(0.8))
                             .multilineTextAlignment(.center)
@@ -185,7 +195,7 @@ struct SubscriptionPurchaseSheet: View {
                     VStack(spacing: 15) {
                         FeatureRow(icon: "wand.and.rays", title: "All Premium Effects")
                         FeatureRow(icon: "arrow.clockwise", title: "Future Effect Releases")
-                        FeatureRow(icon: "iphone", title: "Works on All Devices")
+                        FeatureRow(icon: "calendar", title: "1 Month Free Trial")
                         FeatureRow(icon: "xmark.circle", title: "Cancel Anytime")
                     }
 
@@ -194,9 +204,23 @@ struct SubscriptionPurchaseSheet: View {
                     // Purchase button
                     if let product = storeManager.subscriptionProduct() {
                         VStack(spacing: 15) {
-                            Text("\(product.displayPrice) per year")
-                                .font(.system(size: 32, weight: .bold))
-                                .foregroundColor(.green)
+                            VStack(spacing: 5) {
+                                HStack(alignment: .firstTextBaseline, spacing: 4) {
+                                    Text("FREE")
+                                        .font(.system(size: 20, weight: .bold))
+                                        .foregroundColor(Color(red: 0.0, green: 1.0, blue: 1.0))
+                                    Text("then")
+                                        .font(.system(size: 12))
+                                        .foregroundColor(.white.opacity(0.7))
+                                    Text("\(product.displayPrice)")
+                                        .font(.system(size: 28, weight: .black))
+                                        .foregroundColor(Color(red: 0.0, green: 1.0, blue: 1.0))
+                                }
+
+                                Text("1 month free, then \(product.displayPrice)/month")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(.white.opacity(0.7))
+                            }
 
                             Button(action: {
                                 Task {
@@ -206,19 +230,29 @@ struct SubscriptionPurchaseSheet: View {
                                     dismiss()
                                 }
                             }) {
-                                HStack {
+                                HStack(spacing: 8) {
                                     if isPurchasing {
                                         ProgressView()
                                             .progressViewStyle(CircularProgressViewStyle(tint: .black))
+                                    } else {
+                                        Image(systemName: "play.fill")
+                                            .font(.system(size: 16, weight: .bold))
                                     }
-                                    Text("Subscribe Now")
-                                        .font(.system(size: 18, weight: .bold))
+                                    Text("START FREE TRIAL")
+                                        .font(.system(size: 16, weight: .bold, design: .rounded))
                                 }
                                 .foregroundColor(.black)
                                 .frame(maxWidth: .infinity)
-                                .padding()
-                                .background(Color.yellow)
+                                .padding(.vertical, 16)
+                                .background(
+                                    LinearGradient(
+                                        colors: [Color(red: 0.0, green: 1.0, blue: 1.0), Color(red: 1.0, green: 0.0, blue: 1.0)],
+                                        startPoint: .leading,
+                                        endPoint: .trailing
+                                    )
+                                )
                                 .cornerRadius(25)
+                                .shadow(color: Color(red: 0.0, green: 1.0, blue: 1.0).opacity(0.4), radius: 8, x: 0, y: 4)
                             }
                             .disabled(isPurchasing)
                         }
@@ -337,7 +371,7 @@ struct FeatureRow: View {
         HStack(spacing: 15) {
             Image(systemName: icon)
                 .font(.system(size: 20))
-                .foregroundColor(.yellow)
+                .foregroundColor(Color(red: 0.0, green: 1.0, blue: 1.0))
                 .frame(width: 30)
 
             Text(title)

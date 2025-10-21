@@ -14,6 +14,7 @@ class CameraManager: NSObject, ObservableObject, RecordingAudioDelegate, AVCaptu
         }
     }
     @Published var isUsingFrontCamera = false
+    @Published var isSwitchingCamera = false
     @Published var zoomFactor: CGFloat = 1.0
 
     let session = AVCaptureSession()
@@ -175,29 +176,41 @@ class CameraManager: NSObject, ObservableObject, RecordingAudioDelegate, AVCaptu
 
     func switchCamera() {
         sessionQueue.async {
-            guard !self.isRecording else {
+            guard !self.isRecording && !self.isSwitchingCamera else {
+                print("❌ Cannot switch camera while recording or already switching")
                 return
             }
 
-            // Remove current input
-            if let currentInput = self.videoDeviceInput {
-                self.session.removeInput(currentInput)
-            }
-
-            // Toggle camera position
+            // Set switching state
             DispatchQueue.main.async {
-                self.isUsingFrontCamera.toggle()
+                self.isSwitchingCamera = true
             }
 
-            // Get new camera
-            let newPosition: AVCaptureDevice.Position = self.isUsingFrontCamera ? .front : .back
+            // Begin configuration to batch changes
+            self.session.beginConfiguration()
+
+            // Calculate the new position first
+            let newPosition: AVCaptureDevice.Position = self.isUsingFrontCamera ? .back : .front
+
+            // Get new camera device
             guard let newVideoDevice = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: newPosition) else {
+                print("❌ Failed to get camera device for position: \(newPosition)")
+                self.session.commitConfiguration()
+                DispatchQueue.main.async {
+                    self.isSwitchingCamera = false
+                }
                 return
             }
 
             do {
                 let newVideoInput = try AVCaptureDeviceInput(device: newVideoDevice)
 
+                // Remove current input
+                if let currentInput = self.videoDeviceInput {
+                    self.session.removeInput(currentInput)
+                }
+
+                // Add new input
                 if self.session.canAddInput(newVideoInput) {
                     self.session.addInput(newVideoInput)
                     self.videoDeviceInput = newVideoInput
@@ -208,9 +221,29 @@ class CameraManager: NSObject, ObservableObject, RecordingAudioDelegate, AVCaptu
                         connection.isVideoMirrored = (newPosition == .front)
                     }
 
+                    // Commit all changes at once
+                    self.session.commitConfiguration()
+
+                    // Update state on main thread after successful switch
+                    DispatchQueue.main.async {
+                        self.isUsingFrontCamera.toggle()
+                        self.isSwitchingCamera = false
+                        print("✅ Camera switched to: \(newPosition == .front ? "front" : "back")")
+                    }
+
                 } else {
+                    print("❌ Cannot add new camera input")
+                    self.session.commitConfiguration()
+                    DispatchQueue.main.async {
+                        self.isSwitchingCamera = false
+                    }
                 }
             } catch {
+                print("❌ Failed to create camera input: \(error.localizedDescription)")
+                self.session.commitConfiguration()
+                DispatchQueue.main.async {
+                    self.isSwitchingCamera = false
+                }
             }
         }
     }
@@ -222,7 +255,9 @@ class CameraManager: NSObject, ObservableObject, RecordingAudioDelegate, AVCaptu
             }
 
             let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
-            let outputURL = documentsURL.appendingPathComponent("FeverDream_DiscoShadow_\(Date().timeIntervalSince1970).mp4")
+            let timestamp = Date().timeIntervalSince1970
+            let formattedTimestamp = String(format: "%.3f", timestamp)
+            let outputURL = documentsURL.appendingPathComponent("FeverDream_DiscoShadow_\(formattedTimestamp).mp4")
             self.recordingURL = outputURL
 
             do {
@@ -244,6 +279,9 @@ class CameraManager: NSObject, ObservableObject, RecordingAudioDelegate, AVCaptu
 
                 self.assetWriterVideoInput = AVAssetWriterInput(mediaType: .video, outputSettings: videoSettings)
                 self.assetWriterVideoInput?.expectsMediaDataInRealTime = true
+
+                // Lock video to portrait orientation
+                self.assetWriterVideoInput?.transform = CGAffineTransform(rotationAngle: 0)
 
                 // Configure audio input with simpler settings
                 let audioSettings: [String: Any] = [

@@ -52,13 +52,21 @@ struct VideoGalleryView: View {
                         LazyVGrid(columns: columns, spacing: 10) {
                             ForEach(mediaFiles.indices, id: \.self) { index in
                                 let mediaFile = mediaFiles[index]
-                                MediaFileThumbnailView(mediaFile: mediaFile) {
-                                    print("🎯 Thumbnail tapped: \(mediaFile.url.lastPathComponent) (isVideo: \(mediaFile.isVideo))")
-                                    selectedMediaFile = mediaFile
-                                    // Always show viewer immediately - let it handle loading states
-                                    showMediaViewer = true
-                                    print("🎬 FullScreenCover requested for \(mediaFile.isVideo ? "video" : "photo")")
-                                }
+                                MediaFileThumbnailView(
+                                    mediaFile: mediaFile,
+                                    onTap: {
+                                        print("🎯 Thumbnail tapped: \(mediaFile.url.lastPathComponent) (isVideo: \(mediaFile.isVideo))")
+                                        selectedMediaFile = mediaFile
+                                        // Always show viewer immediately - let it handle loading states
+                                        showMediaViewer = true
+                                        print("🎬 FullScreenCover requested for \(mediaFile.isVideo ? "video" : "photo")")
+                                    },
+                                    onDelete: {
+                                        print("🗑️ Delete requested for: \(mediaFile.url.lastPathComponent)")
+                                        // Reload media files after deletion
+                                        loadMediaFiles()
+                                    }
+                                )
                                 .id("\(index)-\(mediaFile.url.lastPathComponent)") // Force view refresh with index
                             }
                         }
@@ -77,12 +85,6 @@ struct VideoGalleryView: View {
                     .foregroundColor(.white)
                 }
 
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Refresh") {
-                        loadMediaFiles()
-                    }
-                    .foregroundColor(.white)
-                }
             }
         }
         .onAppear {
@@ -112,19 +114,31 @@ struct VideoGalleryView: View {
                         onPlayerReady: {
                             isVideoPlayerReady = true
                             print("🎬 FullScreenCover presenting video: \(selectedMediaFile.url.lastPathComponent)")
+                        },
+                        onDismiss: {
+                            print("🎬 Video player dismissed")
+                            showMediaViewer = false
+                            self.selectedMediaFile = nil
+                            isVideoPlayerReady = false
+                        },
+                        onDelete: {
+                            print("🗑️ Video deleted, reloading gallery")
+                            loadMediaFiles()
                         }
-                    ) {
-                        print("🎬 Video player dismissed")
-                        showMediaViewer = false
-                        self.selectedMediaFile = nil
-                        isVideoPlayerReady = false
-                    }
+                    )
                 } else {
-                    PhotoViewerView(imageURL: selectedMediaFile.url) {
-                        print("🎬 Photo viewer dismissed")
-                        showMediaViewer = false
-                        self.selectedMediaFile = nil
-                    }
+                    PhotoViewerView(
+                        imageURL: selectedMediaFile.url,
+                        onDismiss: {
+                            print("🎬 Photo viewer dismissed")
+                            showMediaViewer = false
+                            self.selectedMediaFile = nil
+                        },
+                        onDelete: {
+                            print("🗑️ Photo deleted, reloading gallery")
+                            loadMediaFiles()
+                        }
+                    )
                     .onAppear {
                         print("🎬 FullScreenCover presenting photo: \(selectedMediaFile.url.lastPathComponent)")
                     }
@@ -210,8 +224,8 @@ struct MediaFile: Equatable {
 struct MediaFileThumbnailView: View {
     let mediaFile: MediaFile
     let onTap: () -> Void
+    let onDelete: () -> Void
     @State private var thumbnail: UIImage?
-    @State private var showShareSheet = false
     @State private var isInteractive = false
 
     // Simple thumbnail cache to avoid regenerating with size limit
@@ -219,69 +233,47 @@ struct MediaFileThumbnailView: View {
     private static let maxCacheSize = 50 // Limit cache size to prevent memory issues
 
     var body: some View {
-        ZStack {
-            Button(action: {
-                if isInteractive {
-                    onTap()
+        Button(action: {
+            if isInteractive {
+                onTap()
+            } else {
+                print("🚫 Thumbnail not yet interactive: \(mediaFile.url.lastPathComponent)")
+            }
+        }) {
+            ZStack {
+                if let thumbnail = thumbnail {
+                    Image(uiImage: thumbnail)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(width: 110, height: 110)
+                        .clipped()
+                        .cornerRadius(8)
                 } else {
-                    print("🚫 Thumbnail not yet interactive: \(mediaFile.url.lastPathComponent)")
+                    Rectangle()
+                        .fill(Color.gray.opacity(0.3))
+                        .frame(width: 110, height: 110)
+                        .cornerRadius(8)
+                        .overlay(
+                            ProgressView()
+                                .scaleEffect(0.8)
+                        )
                 }
-            }) {
-                ZStack {
-                    if let thumbnail = thumbnail {
-                        Image(uiImage: thumbnail)
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                            .frame(width: 110, height: 110)
-                            .clipped()
-                            .cornerRadius(8)
-                    } else {
-                        Rectangle()
-                            .fill(Color.gray.opacity(0.3))
-                            .frame(width: 110, height: 110)
-                            .cornerRadius(8)
-                            .overlay(
-                                ProgressView()
-                                    .scaleEffect(0.8)
-                            )
-                    }
 
-                    // Show play icon only for videos
-                    if mediaFile.isVideo {
-                        VStack {
+                // Show play icon only for videos
+                if mediaFile.isVideo {
+                    VStack {
+                        Spacer()
+                        HStack {
                             Spacer()
-                            HStack {
-                                Spacer()
-                                 Image(systemName: "play.circle.fill")
-                                    .font(.title2)
-                                    .foregroundColor(.white)
-                                    .shadow(radius: 3)
-                                Spacer()
-                            }
+                             Image(systemName: "play.circle.fill")
+                                .font(.title2)
+                                .foregroundColor(.white)
+                                .shadow(radius: 3)
                             Spacer()
                         }
+                        Spacer()
                     }
                 }
-            }
-
-            // Share button overlay
-            VStack {
-                HStack {
-                    Spacer()
-                    Button(action: {
-                        shareMedia()
-                    }) {
-                        Image(systemName: "square.and.arrow.up")
-                            .font(.caption)
-                            .foregroundColor(.white)
-                            .padding(6)
-                            .background(Color.black.opacity(0.7))
-                            .cornerRadius(6)
-                    }
-                    .buttonStyle(PlainButtonStyle())
-                }
-                .padding(6)
-                Spacer()
             }
         }
         .onAppear {
@@ -294,9 +286,6 @@ struct MediaFileThumbnailView: View {
                 isInteractive = true
                 print("✅ Thumbnail loaded and interactive: \(mediaFile.url.lastPathComponent)")
             }
-        }
-        .sheet(isPresented: $showShareSheet) {
-            ShareSheet(activityItems: [mediaFile.url])
         }
     }
 
@@ -419,24 +408,25 @@ struct MediaFileThumbnailView: View {
         }
     }
 
-    private func shareMedia() {
-        showShareSheet = true
-    }
 }
 
 struct VideoPlayerView: View {
     let videoURL: URL
     let onPlayerReady: (() -> Void)?
     let onDismiss: () -> Void
+    let onDelete: (() -> Void)?
     @State private var player: AVPlayer?
     @State private var playerReady = false
     @State private var cancellables = Set<AnyCancellable>()
     @State private var isSettingUp = false
+    @State private var showShareSheet = false
+    @State private var showDeleteAlert = false
 
-    init(videoURL: URL, onPlayerReady: (() -> Void)? = nil, onDismiss: @escaping () -> Void) {
+    init(videoURL: URL, onPlayerReady: (() -> Void)? = nil, onDismiss: @escaping () -> Void, onDelete: (() -> Void)? = nil) {
         self.videoURL = videoURL
         self.onPlayerReady = onPlayerReady
         self.onDismiss = onDismiss
+        self.onDelete = onDelete
     }
 
     var body: some View {
@@ -504,6 +494,46 @@ struct VideoPlayerView: View {
                 }
                 .padding()
                 Spacer()
+
+                // Action buttons at bottom
+                HStack(spacing: 30) {
+                    // Share button
+                    Button(action: {
+                        showShareSheet = true
+                    }) {
+                        VStack(spacing: 4) {
+                            Image(systemName: "square.and.arrow.up")
+                                .font(.title2)
+                                .foregroundColor(.white)
+                            Text("Share")
+                                .font(.caption)
+                                .foregroundColor(.white)
+                        }
+                        .padding()
+                        .background(Color.black.opacity(0.6))
+                        .cornerRadius(12)
+                    }
+
+                    // Delete button
+                    if onDelete != nil {
+                        Button(action: {
+                            showDeleteAlert = true
+                        }) {
+                            VStack(spacing: 4) {
+                                Image(systemName: "trash")
+                                    .font(.title2)
+                                    .foregroundColor(.white)
+                                Text("Delete")
+                                    .font(.caption)
+                                    .foregroundColor(.white)
+                            }
+                            .padding()
+                            .background(Color.red.opacity(0.7))
+                            .cornerRadius(12)
+                        }
+                    }
+                }
+                .padding(.bottom, 50)
             }
         }
         .onAppear {
@@ -514,6 +544,17 @@ struct VideoPlayerView: View {
         }
         .onDisappear {
             cleanupPlayer()
+        }
+        .sheet(isPresented: $showShareSheet) {
+            ShareSheet(activityItems: [videoURL])
+        }
+        .alert("Delete Video", isPresented: $showDeleteAlert) {
+            Button("Delete", role: .destructive) {
+                deleteVideo()
+            }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("Are you sure you want to delete this video? This action cannot be undone.")
         }
     }
 
@@ -583,13 +624,14 @@ struct VideoPlayerView: View {
             }
         }
 
-        // Add observer for when video ends
+        // Add observer for when video ends - just pause, don't dismiss
         NotificationCenter.default.addObserver(
             forName: .AVPlayerItemDidPlayToEndTime,
             object: player?.currentItem,
             queue: .main
         ) { _ in
-            onDismiss()
+            // Keep the preview open, just reset to beginning
+            player?.seek(to: .zero)
         }
     }
 
@@ -602,12 +644,32 @@ struct VideoPlayerView: View {
         NotificationCenter.default.removeObserver(self)
         print("🧹 Cleaned up video player: \(videoURL.lastPathComponent)")
     }
+
+    private func deleteVideo() {
+        do {
+            try FileManager.default.removeItem(at: videoURL)
+            print("🗑️ Successfully deleted video: \(videoURL.lastPathComponent)")
+            onDelete?()
+            onDismiss()
+        } catch {
+            print("❌ Failed to delete video: \(error.localizedDescription)")
+        }
+    }
 }
 
 struct PhotoViewerView: View {
     let imageURL: URL
     let onDismiss: () -> Void
+    let onDelete: (() -> Void)?
     @State private var image: UIImage?
+    @State private var showShareSheet = false
+    @State private var showDeleteAlert = false
+
+    init(imageURL: URL, onDismiss: @escaping () -> Void, onDelete: (() -> Void)? = nil) {
+        self.imageURL = imageURL
+        self.onDismiss = onDismiss
+        self.onDelete = onDelete
+    }
 
     var body: some View {
         ZStack {
@@ -643,6 +705,46 @@ struct PhotoViewerView: View {
                 }
                 .padding()
                 Spacer()
+
+                // Action buttons at bottom
+                HStack(spacing: 30) {
+                    // Share button
+                    Button(action: {
+                        showShareSheet = true
+                    }) {
+                        VStack(spacing: 4) {
+                            Image(systemName: "square.and.arrow.up")
+                                .font(.title2)
+                                .foregroundColor(.white)
+                            Text("Share")
+                                .font(.caption)
+                                .foregroundColor(.white)
+                        }
+                        .padding()
+                        .background(Color.black.opacity(0.6))
+                        .cornerRadius(12)
+                    }
+
+                    // Delete button
+                    if onDelete != nil {
+                        Button(action: {
+                            showDeleteAlert = true
+                        }) {
+                            VStack(spacing: 4) {
+                                Image(systemName: "trash")
+                                    .font(.title2)
+                                    .foregroundColor(.white)
+                                Text("Delete")
+                                    .font(.caption)
+                                    .foregroundColor(.white)
+                            }
+                            .padding()
+                            .background(Color.red.opacity(0.7))
+                            .cornerRadius(12)
+                        }
+                    }
+                }
+                .padding(.bottom, 50)
             }
         }
         .onAppear {
@@ -652,6 +754,17 @@ struct PhotoViewerView: View {
         .onDisappear {
             print("📸 Photo viewer disappeared for: \(imageURL.lastPathComponent)")
         }
+        .sheet(isPresented: $showShareSheet) {
+            ShareSheet(activityItems: [imageURL])
+        }
+        .alert("Delete Photo", isPresented: $showDeleteAlert) {
+            Button("Delete", role: .destructive) {
+                deletePhoto()
+            }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("Are you sure you want to delete this photo? This action cannot be undone.")
+        }
     }
 
     private func loadImage() {
@@ -660,6 +773,17 @@ struct PhotoViewerView: View {
             DispatchQueue.main.async {
                 self.image = loadedImage
             }
+        }
+    }
+
+    private func deletePhoto() {
+        do {
+            try FileManager.default.removeItem(at: imageURL)
+            print("🗑️ Successfully deleted photo: \(imageURL.lastPathComponent)")
+            onDelete?()
+            onDismiss()
+        } catch {
+            print("❌ Failed to delete photo: \(error.localizedDescription)")
         }
     }
 }
