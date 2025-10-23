@@ -17,6 +17,7 @@ class CameraManager: NSObject, ObservableObject, RecordingAudioDelegate, AVCaptu
     @Published var isUsingFrontCamera = false
     @Published var isSwitchingCamera = false
     @Published var zoomFactor: CGFloat = 1.0
+    @Published var isTorchOn = false
 
     let session = AVCaptureSession()
     private var videoDeviceInput: AVCaptureDeviceInput!
@@ -229,6 +230,10 @@ class CameraManager: NSObject, ObservableObject, RecordingAudioDelegate, AVCaptu
                     DispatchQueue.main.async {
                         self.isUsingFrontCamera.toggle()
                         self.isSwitchingCamera = false
+                        // Turn off torch when switching cameras (front camera doesn't have torch)
+                        if newPosition == .front {
+                            self.isTorchOn = false
+                        }
                         print("✅ Camera switched to: \(newPosition == .front ? "front" : "back")")
                     }
 
@@ -493,6 +498,65 @@ class CameraManager: NSObject, ObservableObject, RecordingAudioDelegate, AVCaptu
 
                 device.unlockForConfiguration()
             } catch {
+            }
+        }
+    }
+
+    func toggleTorch() {
+        sessionQueue.async {
+            guard let device = self.videoDeviceInput?.device else { return }
+
+            guard device.hasTorch && device.isTorchAvailable else {
+                print("🔦 Torch not available on this device")
+                return
+            }
+
+            do {
+                try device.lockForConfiguration()
+
+                if self.isTorchOn {
+                    device.torchMode = .off
+                } else {
+                    try device.setTorchModeOn(level: 1.0)
+                }
+
+                device.unlockForConfiguration()
+
+                DispatchQueue.main.async {
+                    self.isTorchOn.toggle()
+                    print("🔦 Torch turned \(self.isTorchOn ? "on" : "off")")
+                }
+            } catch {
+                print("🔦 Error toggling torch: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    func setTorchLevel(_ level: Float) {
+        sessionQueue.async {
+            guard let device = self.videoDeviceInput?.device else { return }
+
+            guard device.hasTorch && device.isTorchAvailable else { return }
+
+            do {
+                try device.lockForConfiguration()
+
+                let clampedLevel = max(0.0, min(level, 1.0))
+                if clampedLevel > 0.0 {
+                    try device.setTorchModeOn(level: clampedLevel)
+                    DispatchQueue.main.async {
+                        self.isTorchOn = true
+                    }
+                } else {
+                    device.torchMode = .off
+                    DispatchQueue.main.async {
+                        self.isTorchOn = false
+                    }
+                }
+
+                device.unlockForConfiguration()
+            } catch {
+                print("🔦 Error setting torch level: \(error.localizedDescription)")
             }
         }
     }

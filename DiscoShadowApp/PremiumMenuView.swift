@@ -279,6 +279,7 @@ enum PremiumEffect: String, CaseIterable, Identifiable {
     case crtDitherGlitch = "crt_dither_glitch_effect"
     case badTV = "bad_tv_effect"
     case strobe = "strobe_effect"
+    case convergence = "convergence_effect"
 
     var id: String { rawValue }
 
@@ -287,6 +288,7 @@ enum PremiumEffect: String, CaseIterable, Identifiable {
         case .crtDitherGlitch: return "HYPNOTIST"
         case .badTV: return "BAD TV"
         case .strobe: return "STROBE"
+        case .convergence: return "CONVERGENCE"
         }
     }
 
@@ -295,6 +297,7 @@ enum PremiumEffect: String, CaseIterable, Identifiable {
         case .crtDitherGlitch: return "Hypnotic waves, fast strobing colors, and audio-reactive image shake"
         case .badTV: return "Infinite feedback loops with vintage TV static, creating hypnotic recursive visuals"
         case .strobe: return "Audio-reactive RGB color channel strobing with independent frequency control"
+        case .convergence: return "RGB channel separation with random displacement creating chromatic aberration glitch effects"
         }
     }
 
@@ -308,6 +311,7 @@ enum PremiumEffect: String, CaseIterable, Identifiable {
         case .crtDitherGlitch: return "video.and.waveform.fill"
         case .badTV: return "tv.fill"
         case .strobe: return "flashlight.on.fill"
+        case .convergence: return "camera.filters"
         }
     }
 
@@ -316,6 +320,7 @@ enum PremiumEffect: String, CaseIterable, Identifiable {
         case .crtDitherGlitch: return [.red, .black, .gray]
         case .badTV: return [.white, .gray, .black, .blue]
         case .strobe: return [.red, .green, .blue, .white]
+        case .convergence: return [.cyan, .pink, .yellow, .black]
         }
     }
 }

@@ -247,6 +247,40 @@ struct ContentView: View {
         )
     }
 
+    // Flash/torch button
+    var flashButton: some View {
+        Button(action: {
+            cameraManager.toggleTorch()
+        }) {
+            Circle()
+                .fill(
+                    cameraManager.isTorchOn ?
+                    LinearGradient(colors: [Color.yellow.opacity(0.6), Color.orange.opacity(0.6)], startPoint: .topLeading, endPoint: .bottomTrailing) :
+                    LinearGradient(colors: [Color(red: 1.0, green: 0.0, blue: 1.0).opacity(0.3), Color(red: 0.0, green: 1.0, blue: 1.0).opacity(0.3)], startPoint: .topLeading, endPoint: .bottomTrailing)
+                )
+                .frame(width: 50, height: 50, alignment: .center)
+                .overlay(
+                    Circle()
+                        .stroke(
+                            cameraManager.isTorchOn ?
+                            LinearGradient(colors: [Color.yellow, Color.orange], startPoint: .topLeading, endPoint: .bottomTrailing) :
+                            LinearGradient(colors: [Color(red: 1.0, green: 0.0, blue: 1.0).opacity(0.6), Color(red: 0.0, green: 1.0, blue: 1.0).opacity(0.6)], startPoint: .topLeading, endPoint: .bottomTrailing),
+                            lineWidth: 1
+                        )
+                )
+                .overlay(
+                    Image(systemName: cameraManager.isTorchOn ? "flashlight.on.fill" : "flashlight.off.fill")
+                        .foregroundColor(cameraManager.isTorchOn ? .white : .white)
+                        .font(.system(size: 18))
+                )
+        }
+        .disabled(cameraManager.isRecording || cameraManager.isUsingFrontCamera)
+        .opacity((cameraManager.isRecording || cameraManager.isUsingFrontCamera) ? 0.3 : 1.0)
+        .scaleEffect((cameraManager.isRecording || cameraManager.isUsingFrontCamera) ? 0.9 : 1.0)
+        .animation(.easeInOut(duration: 0.2), value: cameraManager.isRecording || cameraManager.isUsingFrontCamera)
+        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: cameraManager.isTorchOn)
+    }
+
     // Camera flip button
     var flipCameraButton: some View {
         Button(action: {
@@ -469,7 +503,14 @@ struct ContentView: View {
 
                 Spacer()
 
-                flipCameraButton
+                HStack(spacing: 15) {
+                    // Only show flash button when using back camera
+                    if !cameraManager.isUsingFrontCamera {
+                        flashButton
+                    }
+
+                    flipCameraButton
+                }
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 20)

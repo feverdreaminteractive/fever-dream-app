@@ -222,6 +222,13 @@ class AudioManager: NSObject, ObservableObject {
     }
 
     func startListening() {
+        #if targetEnvironment(simulator)
+        // Skip audio engine on simulator to prevent crashes
+        print("🎵 AudioManager: Skipping audio engine start on simulator")
+        isListening = true
+        return
+        #endif
+
         guard !audioEngine.isRunning else {
             print("🎵 AudioManager: Already running")
             return
@@ -248,6 +255,13 @@ class AudioManager: NSObject, ObservableObject {
 
 
     func stopListening() {
+        #if targetEnvironment(simulator)
+        // Skip audio engine operations on simulator
+        print("🎵 AudioManager: Stopping audio (simulator mode)")
+        isListening = false
+        return
+        #endif
+
         if audioEngine.isRunning {
             audioEngine.stop()
             inputNode?.removeTap(onBus: 0)

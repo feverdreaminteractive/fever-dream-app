@@ -1699,5 +1699,74 @@ kernel void strobeEffect(texture2d<float, access::read> inputTexture [[texture(0
     outputTexture.write(outputPixel, gid);
 }
 
+// Convergence Effect - RGB channel separation with chromatic aberration
+// Random function for convergence effect
+float convergenceRand(float2 co) {
+    return fract(sin(dot(co.xy, float2(12.9898, 78.233))) * 43758.5453);
+}
 
+kernel void convergenceEffect(texture2d<float, access::read> inputTexture [[ texture(0) ]],
+                             texture2d<float, access::write> outputTexture [[ texture(1) ]],
+                             constant float &time [[ buffer(0) ]],
+                             constant float &horizontal_magnitude [[ buffer(1) ]],
+                             constant float &vertical_magnitude [[ buffer(2) ]],
+                             constant float &color_magnitude [[ buffer(3) ]],
+                             constant int &mode [[ buffer(4) ]],
+                             uint2 gid [[ thread_position_in_grid ]]) {
 
+    if (gid.x >= outputTexture.get_width() || gid.y >= outputTexture.get_height()) {
+        return;
+    }
+
+    float2 texCoord = float2(gid) / float2(outputTexture.get_width(), outputTexture.get_height());
+
+    // Read original pixel
+    float4 col = inputTexture.read(gid);
+
+    uint width = inputTexture.get_width();
+    uint height = inputTexture.get_height();
+
+    // Audio-reactive RGB separation - scaled to stay on screen
+    // Red channel offset (horizontal + vertical displacement)
+    float2 red_offset = texCoord + float2(horizontal_magnitude * 0.08, vertical_magnitude * 0.05);
+    uint2 offset_r = uint2(clamp(red_offset.x * width, 0.0, float(width-1)),
+                          clamp(red_offset.y * height, 0.0, float(height-1)));
+    float4 col_r = inputTexture.read(offset_r);
+
+    // Blue channel offset (opposite horizontal + opposite vertical displacement)
+    float2 blue_offset = texCoord + float2(-horizontal_magnitude * 0.08, -vertical_magnitude * 0.05);
+    uint2 offset_l = uint2(clamp(blue_offset.x * width, 0.0, float(width-1)),
+                          clamp(blue_offset.y * height, 0.0, float(height-1)));
+    float4 col_l = inputTexture.read(offset_l);
+
+    // Green channel offset (both horizontal and vertical displacement)
+    float2 green_offset = texCoord + float2(horizontal_magnitude * 0.05, vertical_magnitude * 0.07);
+    uint2 offset_g = uint2(clamp(green_offset.x * width, 0.0, float(width-1)),
+                          clamp(green_offset.y * height, 0.0, float(height-1)));
+    float4 col_g = inputTexture.read(offset_g);
+
+    // Create convergence effect by combining separated RGB channels
+    float4 separated_channels;
+    separated_channels.r = col_r.r;  // Red from offset sample
+    separated_channels.g = col_g.g;  // Green from offset sample
+    separated_channels.b = col_l.b;  // Blue from offset sample
+    separated_channels.a = col.a;    // Keep original alpha
+
+    // Apply blend mode
+    float4 result;
+    if (mode == 0) {
+        // Add
+        result = col + separated_channels * color_magnitude * 0.3;
+    } else if (mode == 1) {
+        // Add mod - creates psychedelic color wrapping
+        result = fmod(col + separated_channels * color_magnitude * 0.8, 1.001);
+    } else if (mode == 2) {
+        // Multiply
+        result = col * separated_channels * color_magnitude;
+    } else {
+        // Difference (mode == 3)
+        result = abs(separated_channels - col) * color_magnitude;
+    }
+
+    outputTexture.write(result, gid);
+}

@@ -14,6 +14,7 @@ class MetalRenderer: NSObject {
     private var crtSlitScanPipelineState: MTLComputePipelineState?
     private var badTVPipelineState: MTLComputePipelineState?
     private var strobePipelineState: MTLComputePipelineState?
+    private var convergencePipelineState: MTLComputePipelineState?
 
     private var textureCache: CVMetalTextureCache?
     private var outputTexture: MTLTexture?
@@ -122,6 +123,19 @@ class MetalRenderer: NSObject {
             print("⚠️ Could not create Strobe compute pipeline state: \\(error)")
         }
 
+        // Set up Convergence effect (Premium)
+        guard let convergenceFunction = library.makeFunction(name: "convergenceEffect") else {
+            print("⚠️ Convergence effect not available")
+            return
+        }
+
+        do {
+            convergencePipelineState = try device.makeComputePipelineState(function: convergenceFunction)
+            print("✅ Convergence pipeline created successfully")
+        } catch {
+            print("⚠️ Could not create Convergence compute pipeline state: \\(error)")
+        }
+
         // Set up render pipeline for display
         guard let vertexFunction = library.makeFunction(name: "vertexShader"),
               let fragmentFunction = library.makeFunction(name: "fragmentShader") else {
@@ -168,6 +182,9 @@ class MetalRenderer: NSObject {
             case .strobe:
                 selectedPipelineState = strobePipelineState
                 print("🎨 MetalRenderer: Selected Strobe pipeline")
+            case .convergence:
+                selectedPipelineState = convergencePipelineState
+                print("🎨 MetalRenderer: Selected Convergence pipeline")
             }
         } else {
             // Use default Disco Shadow effect
@@ -291,8 +308,26 @@ class MetalRenderer: NSObject {
         if Int(time * 60) % 30 == 0 {
         }
 
-        let uniformsSize = MemoryLayout<DiscoUniforms>.size
-        computeEncoder.setBytes(&uniforms, length: uniformsSize, index: 0)
+        // Handle convergence effect parameters differently
+        if let premiumEffect = activePremiumEffect, premiumEffect == .convergence {
+            // Convergence effect uses separate buffer parameters
+            var convergenceTime = time
+            // Pure audio-reactive movement - no time-based oscillation
+            var horizontalMagnitude = Float(0.2) + (audioLevel * 15.0)
+            var verticalMagnitude = Float(0.2) + (bassLevel * 15.0)
+            var colorMagnitude = Float(0.5) + (midLevel * 20.0)
+            var convergenceMode = Int32(1) // Add mod mode for better color effects
+
+            computeEncoder.setBytes(&convergenceTime, length: MemoryLayout<Float>.size, index: 0)
+            computeEncoder.setBytes(&horizontalMagnitude, length: MemoryLayout<Float>.size, index: 1)
+            computeEncoder.setBytes(&verticalMagnitude, length: MemoryLayout<Float>.size, index: 2)
+            computeEncoder.setBytes(&colorMagnitude, length: MemoryLayout<Float>.size, index: 3)
+            computeEncoder.setBytes(&convergenceMode, length: MemoryLayout<Int32>.size, index: 4)
+        } else {
+            // Use standard DiscoUniforms for other effects
+            let uniformsSize = MemoryLayout<DiscoUniforms>.size
+            computeEncoder.setBytes(&uniforms, length: uniformsSize, index: 0)
+        }
 
         let threadsPerGroup = MTLSize(width: 16, height: 16, depth: 1)
         let threadgroupsPerGrid = MTLSize(
