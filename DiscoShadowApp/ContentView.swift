@@ -402,7 +402,7 @@ struct ContentView: View {
         VStack(spacing: 0) {
             // Always show crossfader mixer
             if let metalRenderer = cameraManager.effectsProcessor.metalRenderer {
-                SimpleCrossfaderView(metalRenderer: metalRenderer, showingMixer: .constant(true), storeManager: storeManager)
+                SimpleCrossfaderView(metalRenderer: metalRenderer, showingMixer: .constant(true), storeManager: storeManager, showPremiumMenu: $showPremiumMenu)
                     .disabled(cameraManager.isRecording)
                     .opacity(cameraManager.isRecording ? 0.6 : 1.0)
             }
@@ -557,6 +557,7 @@ struct SimpleCrossfaderView: View {
     @ObservedObject var metalRenderer: MetalRenderer
     @Binding var showingMixer: Bool
     @ObservedObject var storeManager: StoreManager
+    @Binding var showPremiumMenu: Bool
     @State private var crossfaderPosition: Double = 0.0
     @State private var showLeftEffectSelector = false
     @State private var showRightEffectSelector = false
@@ -689,10 +690,10 @@ struct SimpleCrossfaderView: View {
             print("🎚️ SimpleCrossfaderView: Activated crossfader on appear")
         }
         .sheet(isPresented: $showLeftEffectSelector) {
-            EffectPickerView(selectedEffect: $leftEffect, title: "LEFT EFFECT", availableEffects: availableEffects, storeManager: storeManager)
+            EffectPickerView(selectedEffect: $leftEffect, title: "LEFT EFFECT", availableEffects: availableEffects, storeManager: storeManager, showPremiumMenu: $showPremiumMenu)
         }
         .sheet(isPresented: $showRightEffectSelector) {
-            EffectPickerView(selectedEffect: $rightEffect, title: "RIGHT EFFECT", availableEffects: availableEffects, storeManager: storeManager)
+            EffectPickerView(selectedEffect: $rightEffect, title: "RIGHT EFFECT", availableEffects: availableEffects, storeManager: storeManager, showPremiumMenu: $showPremiumMenu)
         }
     }
 
@@ -709,6 +710,7 @@ struct EffectPickerView: View {
     let title: String
     let availableEffects: [EffectChoice]
     let storeManager: StoreManager
+    @Binding var showPremiumMenu: Bool
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -812,7 +814,7 @@ struct EffectPickerView: View {
 
                                 Button(action: {
                                     dismiss()
-                                    // This would trigger the premium menu
+                                    showPremiumMenu = true
                                 }) {
                                     HStack {
                                         Image(systemName: "crown.fill")
