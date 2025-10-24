@@ -47,7 +47,7 @@ struct PremiumMenuView: View {
                                         .foregroundColor(.white)
                                 }
 
-                                Text("All premium effects • 1 month free trial")
+                                Text("All 4 premium effects included • 1 month free trial")
                                     .font(.system(size: 14))
                                     .foregroundColor(.white.opacity(0.8))
                                     .multilineTextAlignment(.center)
@@ -107,26 +107,9 @@ struct PremiumMenuView: View {
                         )
                         .padding(.horizontal)
 
-                        // Divider
-                        HStack {
-                            Rectangle()
-                                .fill(Color.white.opacity(0.3))
-                                .frame(height: 1)
-
-                            Text("OR")
-                                .font(.system(size: 14, weight: .medium))
-                                .foregroundColor(.white.opacity(0.7))
-                                .padding(.horizontal, 15)
-
-                            Rectangle()
-                                .fill(Color.white.opacity(0.3))
-                                .frame(height: 1)
-                        }
-                        .padding(.horizontal)
-
-                        // Individual Effects Section
+                        // Premium Effects Preview Section
                         VStack(spacing: 20) {
-                            Text("BUY INDIVIDUAL EFFECTS")
+                            Text("INCLUDED PREMIUM EFFECTS")
                                 .font(.system(size: 18, weight: .bold, design: .rounded))
                                 .foregroundColor(.white)
 
@@ -139,8 +122,8 @@ struct PremiumMenuView: View {
                                         effect: effect,
                                         isOwned: storeManager.ownedEffects.contains(effect.id),
                                         onTap: {
-                                            if !storeManager.ownedEffects.contains(effect.id) {
-                                                // All effects require subscription now
+                                            // All effects included in subscription - no individual purchases
+                                            if !storeManager.hasSubscription {
                                                 showingSubscriptionSheet = true
                                             }
                                         }
@@ -156,9 +139,15 @@ struct PremiumMenuView: View {
                                 .font(.system(size: 16, weight: .bold))
                                 .foregroundColor(.green)
 
-                            Text("Cancel anytime. No commitment.")
-                                .font(.system(size: 12))
-                                .foregroundColor(.white.opacity(0.8))
+                            VStack(spacing: 4) {
+                                Text("✨ Unlimited access to all premium effects")
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundColor(.white.opacity(0.9))
+
+                                Text("Cancel anytime. No commitment.")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(.white.opacity(0.8))
+                            }
                         }
                         .padding(.vertical, 15)
 
