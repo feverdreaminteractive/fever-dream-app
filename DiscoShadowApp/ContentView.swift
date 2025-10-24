@@ -451,9 +451,21 @@ struct ContentView: View {
                             Spacer()
 
                             VStack(alignment: .center, spacing: 2) {
-                                Text(selectedEffect?.name ?? "FEVER DREAM")
-                                    .font(.system(size: 12, weight: .semibold, design: .rounded))
-                                    .foregroundColor(Color(red: 0.0, green: 1.0, blue: 1.0))
+                                HStack(spacing: 4) {
+                                    Text(selectedEffect?.name ?? "FEVER DREAM")
+                                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                                        .foregroundColor(Color(red: 0.0, green: 1.0, blue: 1.0))
+
+                                    if !storeManager.hasSubscription {
+                                        Text("PREMIUM")
+                                            .font(.system(size: 8, weight: .bold))
+                                            .foregroundColor(.yellow)
+                                            .padding(.horizontal, 4)
+                                            .padding(.vertical, 2)
+                                            .background(Color.yellow.opacity(0.2))
+                                            .cornerRadius(4)
+                                    }
+                                }
                             }
 
                             Spacer()
@@ -562,8 +574,75 @@ struct ContentView: View {
                 .environmentObject(storeManager)
         }
         .sheet(isPresented: $showEffectSelector) {
-            EffectsSelectorView(selectedEffect: $selectedEffect, storeManager: storeManager)
+            EffectsSelectorView(selectedEffect: $selectedEffect, storeManager: storeManager, showPremiumMenu: $showPremiumMenu)
         }
+    }
+}
+
+struct EffectOptionView: View {
+    let name: String
+    let description: String
+    let iconName: String
+    let gradientColors: [Color]
+    let isSelected: Bool
+    let isOwned: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Text(name)
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundColor(isOwned ? .white : .white.opacity(0.5))
+
+                        if !isOwned {
+                            Image(systemName: "crown.fill")
+                                .foregroundColor(.yellow)
+                                .font(.system(size: 12))
+                        }
+                    }
+
+                    Text(description)
+                        .font(.system(size: 12))
+                        .foregroundColor(isOwned ? .white.opacity(0.7) : .white.opacity(0.4))
+                }
+
+                Spacer()
+
+                if !isOwned {
+                    Text("PREMIUM")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(.yellow)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color.yellow.opacity(0.2))
+                        .cornerRadius(6)
+                } else if isSelected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundColor(.cyan)
+                        .font(.system(size: 20))
+                }
+            }
+            .padding()
+            .background(
+                isSelected && isOwned ?
+                LinearGradient(colors: [Color.cyan.opacity(0.2), Color.purple.opacity(0.2)], startPoint: .leading, endPoint: .trailing) :
+                LinearGradient(colors: [isOwned ? Color.white.opacity(0.05) : Color.white.opacity(0.02)], startPoint: .center, endPoint: .center)
+            )
+            .cornerRadius(12)
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(
+                        isSelected && isOwned ?
+                        LinearGradient(colors: [Color.cyan, Color.purple], startPoint: .leading, endPoint: .trailing) :
+                        LinearGradient(colors: [isOwned ? Color.white.opacity(0.3) : Color.white.opacity(0.1)], startPoint: .center, endPoint: .center),
+                        lineWidth: isSelected && isOwned ? 2 : 1
+                    )
+            )
+        }
+        .buttonStyle(PlainButtonStyle())
     }
 }
 
@@ -728,6 +807,7 @@ struct LoadingScreenView: View {
 struct EffectsSelectorView: View {
     @Binding var selectedEffect: PremiumEffect?
     let storeManager: StoreManager
+    @Binding var showPremiumMenu: Bool
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -771,12 +851,19 @@ struct EffectsSelectorView: View {
                                 iconName: effect.iconName,
                                 gradientColors: effect.gradientColors,
                                 isSelected: selectedEffect == effect,
-                                isOwned: true, // Temporarily bypass ownership check
+                                isOwned: storeManager.canUseEffect(effect),
                                 action: {
                                     print("🎯 Effect selected: \(effect.name)")
-                                    // Temporarily bypass ownership check for testing
-                                    selectedEffect = effect
-                                    dismiss()
+                                    if storeManager.canUseEffect(effect) {
+                                        selectedEffect = effect
+                                        dismiss()
+                                    } else {
+                                        // Show premium menu for purchase
+                                        dismiss()
+                                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                            showPremiumMenu = true
+                                        }
+                                    }
                                 }
                             )
                         }
@@ -797,57 +884,6 @@ struct EffectsSelectorView: View {
     }
 }
 
-struct EffectOptionView: View {
-    let name: String
-    let description: String
-    let iconName: String
-    let gradientColors: [Color]
-    let isSelected: Bool
-    let isOwned: Bool
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 15) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(name)
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundColor(.white)
-
-                    Text(description)
-                        .font(.system(size: 12))
-                        .foregroundColor(.white.opacity(0.7))
-                        .multilineTextAlignment(.leading)
-                }
-
-                Spacer()
-
-                if isSelected {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundColor(Color(red: 0.0, green: 1.0, blue: 1.0))
-                        .font(.system(size: 20))
-                }
-            }
-            .padding()
-            .background(
-                isSelected ?
-                LinearGradient(colors: [Color(red: 1.0, green: 0.0, blue: 1.0).opacity(0.2), Color(red: 0.0, green: 1.0, blue: 1.0).opacity(0.2)], startPoint: .leading, endPoint: .trailing) :
-                LinearGradient(colors: [Color.white.opacity(0.05)], startPoint: .center, endPoint: .center)
-            )
-            .cornerRadius(16)
-            .overlay(
-                RoundedRectangle(cornerRadius: 16)
-                    .stroke(
-                        isSelected ?
-                        LinearGradient(colors: [Color(red: 1.0, green: 0.0, blue: 1.0), Color(red: 0.0, green: 1.0, blue: 1.0)], startPoint: .leading, endPoint: .trailing) :
-                        LinearGradient(colors: [Color.clear], startPoint: .center, endPoint: .center),
-                        lineWidth: isSelected ? 2 : 0
-                    )
-            )
-        }
-        .buttonStyle(PlainButtonStyle())
-    }
-}
 
 #Preview {
     ContentView()
