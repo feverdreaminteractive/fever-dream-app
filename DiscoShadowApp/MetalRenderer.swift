@@ -2,9 +2,10 @@ import Metal
 import MetalKit
 import AVFoundation
 import CoreVideo
+import Combine
 
 
-class MetalRenderer: NSObject {
+class MetalRenderer: NSObject, ObservableObject {
     private let device: MTLDevice
     private let commandQueue: MTLCommandQueue
     private let library: MTLLibrary
@@ -21,6 +22,13 @@ class MetalRenderer: NSObject {
     private var feedbackTexture: MTLTexture? // For feedback effect
     private var strobeStateTexture: MTLTexture? // For strobe state persistence
 
+    // Crossfader textures
+    private var leftEffectTexture: MTLTexture?
+    private var rightEffectTexture: MTLTexture?
+
+    // Alpha blending pipeline for crossfader
+    private var alphaBlendPipelineState: MTLComputePipelineState?
+
     // Slit scan frame buffer for CRT effect
     private var frameBuffer: [MTLTexture] = []
     private let frameBufferSize = 8 // Store 8 previous frames
@@ -36,6 +44,12 @@ class MetalRenderer: NSObject {
     // Premium effects
     var activePremiumEffect: PremiumEffect?
     var storeManager: StoreManager?
+
+    // Crossfader properties
+    @Published var isCrossfaderActive: Bool = false
+    @Published var leftEffect: PremiumEffect?
+    @Published var rightEffect: PremiumEffect?
+    @Published var crossfaderPosition: Float = 0.0  // -1.0 = full left, 0.0 = center, 1.0 = full right
 
     override init() {
         guard let device = MTLCreateSystemDefaultDevice() else {
@@ -136,6 +150,19 @@ class MetalRenderer: NSObject {
             print("⚠️ Could not create Convergence compute pipeline state: \\(error)")
         }
 
+        // Set up Alpha Blend effect for crossfader
+        guard let alphaBlendFunction = library.makeFunction(name: "alphaBlendEffects") else {
+            print("⚠️ Alpha Blend effect not available")
+            return
+        }
+
+        do {
+            alphaBlendPipelineState = try device.makeComputePipelineState(function: alphaBlendFunction)
+            print("✅ Alpha Blend pipeline created successfully")
+        } catch {
+            print("⚠️ Could not create Alpha Blend compute pipeline state: \\(error)")
+        }
+
         // Set up render pipeline for display
         guard let vertexFunction = library.makeFunction(name: "vertexShader"),
               let fragmentFunction = library.makeFunction(name: "fragmentShader") else {
@@ -166,36 +193,6 @@ class MetalRenderer: NSObject {
             return nil
         }
 
-        // Check for premium effects first
-        var selectedPipelineState: MTLComputePipelineState?
-
-        if let premiumEffect = activePremiumEffect {
-            // Use premium effect if available - ownership check is done outside render loop
-            print("🎨 MetalRenderer: Using premium effect: \(premiumEffect)")
-            switch premiumEffect {
-            case .crtDitherGlitch:
-                selectedPipelineState = crtSlitScanPipelineState ?? crtDitherPipelineState
-                print("🎨 MetalRenderer: Selected CRT Slit Scan pipeline")
-            case .badTV:
-                selectedPipelineState = badTVPipelineState
-                print("🎨 MetalRenderer: Selected Bad TV pipeline")
-            case .strobe:
-                selectedPipelineState = strobePipelineState
-                print("🎨 MetalRenderer: Selected Strobe pipeline")
-            case .convergence:
-                selectedPipelineState = convergencePipelineState
-                print("🎨 MetalRenderer: Selected Convergence pipeline")
-            }
-        } else {
-            // Use default Disco Shadow effect
-            selectedPipelineState = discoComputePipelineState
-            print("🎨 MetalRenderer: Using default Disco Shadow effect")
-        }
-
-        guard let pipelineState = selectedPipelineState else {
-            return nil
-        }
-
         let width = CVPixelBufferGetWidth(pixelBuffer)
         let height = CVPixelBufferGetHeight(pixelBuffer)
 
@@ -220,7 +217,22 @@ class MetalRenderer: NSObject {
             return nil
         }
 
+        // Set up textures
+        setupTextures(width: width, height: height)
 
+        guard let outputTexture = outputTexture else {
+            return nil
+        }
+
+        if isCrossfaderActive {
+            return processCrossfaderFrame(inputTexture: inputTexture, audioLevel: audioLevel, bassLevel: bassLevel, midLevel: midLevel, trebleLevel: trebleLevel, warpMagnitude: warpMagnitude)
+        } else {
+            return processSingleEffect(inputTexture: inputTexture, audioLevel: audioLevel, bassLevel: bassLevel, midLevel: midLevel, trebleLevel: trebleLevel, warpMagnitude: warpMagnitude)
+        }
+    }
+
+    private func setupTextures(width: Int, height: Int) {
+        // Main output texture
         if outputTexture == nil ||
            outputTexture!.width != width ||
            outputTexture!.height != height {
@@ -232,6 +244,33 @@ class MetalRenderer: NSObject {
             )
             textureDescriptor.usage = [.shaderWrite, .shaderRead]
             outputTexture = device.makeTexture(descriptor: textureDescriptor)
+        }
+
+        // Crossfader textures
+        if leftEffectTexture == nil ||
+           leftEffectTexture!.width != width ||
+           leftEffectTexture!.height != height {
+            let textureDescriptor = MTLTextureDescriptor.texture2DDescriptor(
+                pixelFormat: .bgra8Unorm,
+                width: width,
+                height: height,
+                mipmapped: false
+            )
+            textureDescriptor.usage = [.shaderWrite, .shaderRead]
+            leftEffectTexture = device.makeTexture(descriptor: textureDescriptor)
+        }
+
+        if rightEffectTexture == nil ||
+           rightEffectTexture!.width != width ||
+           rightEffectTexture!.height != height {
+            let textureDescriptor = MTLTextureDescriptor.texture2DDescriptor(
+                pixelFormat: .bgra8Unorm,
+                width: width,
+                height: height,
+                mipmapped: false
+            )
+            textureDescriptor.usage = [.shaderWrite, .shaderRead]
+            rightEffectTexture = device.makeTexture(descriptor: textureDescriptor)
         }
 
         // Create feedback texture for feedback effects
@@ -259,42 +298,101 @@ class MetalRenderer: NSObject {
             textureDescriptor.usage = [.shaderWrite, .shaderRead]
             strobeStateTexture = device.makeTexture(descriptor: textureDescriptor)
         }
+    }
 
+    private func processCrossfaderFrame(inputTexture: MTLTexture, audioLevel: Float, bassLevel: Float, midLevel: Float, trebleLevel: Float, warpMagnitude: Float) -> MTLTexture? {
+        guard let leftEffectTexture = leftEffectTexture,
+              let rightEffectTexture = rightEffectTexture,
+              let outputTexture = outputTexture else {
+            return nil
+        }
+
+        // Render left effect
+        if let leftEffect = leftEffect {
+            renderEffect(leftEffect, inputTexture: inputTexture, outputTexture: leftEffectTexture, audioLevel: audioLevel, bassLevel: bassLevel, midLevel: midLevel, trebleLevel: trebleLevel, warpMagnitude: warpMagnitude)
+        } else {
+            // Default disco effect for left
+            renderDiscoEffect(inputTexture: inputTexture, outputTexture: leftEffectTexture, audioLevel: audioLevel, bassLevel: bassLevel, midLevel: midLevel, trebleLevel: trebleLevel, warpMagnitude: warpMagnitude)
+        }
+
+        // Render right effect
+        if let rightEffect = rightEffect {
+            renderEffect(rightEffect, inputTexture: inputTexture, outputTexture: rightEffectTexture, audioLevel: audioLevel, bassLevel: bassLevel, midLevel: midLevel, trebleLevel: trebleLevel, warpMagnitude: warpMagnitude)
+        } else {
+            // Default disco effect for right
+            renderDiscoEffect(inputTexture: inputTexture, outputTexture: rightEffectTexture, audioLevel: audioLevel, bassLevel: bassLevel, midLevel: midLevel, trebleLevel: trebleLevel, warpMagnitude: warpMagnitude)
+        }
+
+        // Blend the two effects based on crossfader position
+        blendEffects(leftTexture: leftEffectTexture, rightTexture: rightEffectTexture, outputTexture: outputTexture)
+
+        time += 0.016
+        return outputTexture
+    }
+
+    private func processSingleEffect(inputTexture: MTLTexture, audioLevel: Float, bassLevel: Float, midLevel: Float, trebleLevel: Float, warpMagnitude: Float) -> MTLTexture? {
         guard let outputTexture = outputTexture else {
             return nil
         }
 
+        // Use the currently selected premium effect or default to disco
+        if let effectToRender = activePremiumEffect {
+            renderEffect(effectToRender, inputTexture: inputTexture, outputTexture: outputTexture, audioLevel: audioLevel, bassLevel: bassLevel, midLevel: midLevel, trebleLevel: trebleLevel, warpMagnitude: warpMagnitude)
+        } else {
+            // Default disco effect - render it directly
+            renderDiscoEffect(inputTexture: inputTexture, outputTexture: outputTexture, audioLevel: audioLevel, bassLevel: bassLevel, midLevel: midLevel, trebleLevel: trebleLevel, warpMagnitude: warpMagnitude)
+        }
+
+        time += 0.016
+        return outputTexture
+    }
+
+    private func renderEffect(_ effect: PremiumEffect, inputTexture: MTLTexture, outputTexture: MTLTexture, audioLevel: Float, bassLevel: Float, midLevel: Float, trebleLevel: Float, warpMagnitude: Float) {
+        var selectedPipelineState: MTLComputePipelineState?
+
+        switch effect {
+        case .crtDitherGlitch:
+            selectedPipelineState = crtSlitScanPipelineState ?? crtDitherPipelineState
+        case .badTV:
+            selectedPipelineState = badTVPipelineState
+        case .strobe:
+            selectedPipelineState = strobePipelineState
+        case .convergence:
+            selectedPipelineState = convergencePipelineState
+        }
+
+        guard let pipelineState = selectedPipelineState else {
+            return
+        }
 
         guard let commandBuffer = commandQueue.makeCommandBuffer() else {
-            return nil
+            return
         }
 
         guard let computeEncoder = commandBuffer.makeComputeCommandEncoder() else {
-            return nil
+            return
         }
-
 
         computeEncoder.setComputePipelineState(pipelineState)
         computeEncoder.setTexture(inputTexture, index: 0)
         computeEncoder.setTexture(outputTexture, index: 1)
 
         // For Bad TV effect, pass feedback texture as texture index 2
-        if let premiumEffect = activePremiumEffect, premiumEffect == .badTV {
+        if effect == .badTV {
             computeEncoder.setTexture(feedbackTexture, index: 2)
         }
 
         // For Strobe effect, pass strobe state texture as texture index 2
-        if let premiumEffect = activePremiumEffect, premiumEffect == .strobe {
+        if effect == .strobe {
             computeEncoder.setTexture(strobeStateTexture, index: 2)
         }
-
 
         var uniforms = DiscoUniforms(
             time: time,
             intensity: intensity,
             colorVariation: colorVariation,
-            resolutionX: Float(width),
-            resolutionY: Float(height),
+            resolutionX: Float(inputTexture.width),
+            resolutionY: Float(inputTexture.height),
             audioLevel: audioLevel,
             bassLevel: bassLevel,
             midLevel: midLevel,
@@ -304,19 +402,14 @@ class MetalRenderer: NSObject {
             chromaticAberration: chromaticAberration
         )
 
-        // Debug: Log audio parameters every 30 frames
-        if Int(time * 60) % 30 == 0 {
-        }
-
         // Handle convergence effect parameters differently
-        if let premiumEffect = activePremiumEffect, premiumEffect == .convergence {
+        if effect == .convergence {
             // Convergence effect uses separate buffer parameters
             var convergenceTime = time
-            // Pure audio-reactive movement - no time-based oscillation
             var horizontalMagnitude = Float(0.2) + (audioLevel * 15.0)
             var verticalMagnitude = Float(0.2) + (bassLevel * 15.0)
             var colorMagnitude = Float(0.5) + (midLevel * 20.0)
-            var convergenceMode = Int32(1) // Add mod mode for better color effects
+            var convergenceMode = Int32(1)
 
             computeEncoder.setBytes(&convergenceTime, length: MemoryLayout<Float>.size, index: 0)
             computeEncoder.setBytes(&horizontalMagnitude, length: MemoryLayout<Float>.size, index: 1)
@@ -331,8 +424,8 @@ class MetalRenderer: NSObject {
 
         let threadsPerGroup = MTLSize(width: 16, height: 16, depth: 1)
         let threadgroupsPerGrid = MTLSize(
-            width: (width + threadsPerGroup.width - 1) / threadsPerGroup.width,
-            height: (height + threadsPerGroup.height - 1) / threadsPerGroup.height,
+            width: (inputTexture.width + threadsPerGroup.width - 1) / threadsPerGroup.width,
+            height: (inputTexture.height + threadsPerGroup.height - 1) / threadsPerGroup.height,
             depth: 1
         )
 
@@ -340,23 +433,118 @@ class MetalRenderer: NSObject {
         computeEncoder.endEncoding()
 
         // For Bad TV effect, copy output to feedback texture for next frame
-        if let premiumEffect = activePremiumEffect, premiumEffect == .badTV, let feedbackTexture = feedbackTexture {
+        if effect == .badTV, let feedbackTexture = feedbackTexture {
             guard let blitEncoder = commandBuffer.makeBlitCommandEncoder() else {
                 commandBuffer.commit()
-                time += 0.016
-                return outputTexture
+                return
             }
             blitEncoder.copy(from: outputTexture, to: feedbackTexture)
             blitEncoder.endEncoding()
         }
 
         commandBuffer.commit()
+    }
 
-        // Don't wait for completion - this was blocking the main thread
-        // The texture will be available asynchronously
-        time += 0.016
+    private func renderDiscoEffect(inputTexture: MTLTexture, outputTexture: MTLTexture, audioLevel: Float, bassLevel: Float, midLevel: Float, trebleLevel: Float, warpMagnitude: Float) {
+        guard let pipelineState = discoComputePipelineState else {
+            return
+        }
 
-        return outputTexture
+        guard let commandBuffer = commandQueue.makeCommandBuffer() else {
+            return
+        }
+
+        guard let computeEncoder = commandBuffer.makeComputeCommandEncoder() else {
+            return
+        }
+
+        computeEncoder.setComputePipelineState(pipelineState)
+        computeEncoder.setTexture(inputTexture, index: 0)
+        computeEncoder.setTexture(outputTexture, index: 1)
+
+        var uniforms = DiscoUniforms(
+            time: time,
+            intensity: intensity,
+            colorVariation: colorVariation,
+            resolutionX: Float(inputTexture.width),
+            resolutionY: Float(inputTexture.height),
+            audioLevel: audioLevel,
+            bassLevel: bassLevel,
+            midLevel: midLevel,
+            trebleLevel: trebleLevel,
+            warpMagnitude: warpAmount,
+            glitchIntensity: glitchIntensity,
+            chromaticAberration: chromaticAberration
+        )
+
+        let uniformsSize = MemoryLayout<DiscoUniforms>.size
+        computeEncoder.setBytes(&uniforms, length: uniformsSize, index: 0)
+
+        let threadsPerGroup = MTLSize(width: 16, height: 16, depth: 1)
+        let threadgroupsPerGrid = MTLSize(
+            width: (inputTexture.width + threadsPerGroup.width - 1) / threadsPerGroup.width,
+            height: (inputTexture.height + threadsPerGroup.height - 1) / threadsPerGroup.height,
+            depth: 1
+        )
+
+        computeEncoder.dispatchThreadgroups(threadgroupsPerGrid, threadsPerThreadgroup: threadsPerGroup)
+        computeEncoder.endEncoding()
+
+        commandBuffer.commit()
+    }
+
+    private func blendEffects(leftTexture: MTLTexture, rightTexture: MTLTexture, outputTexture: MTLTexture) {
+        guard let alphaBlendPipelineState = alphaBlendPipelineState else {
+            print("⚠️ Alpha blend pipeline not available, falling back to simple copy")
+            // Fallback to simple texture copying
+            guard let commandBuffer = commandQueue.makeCommandBuffer(),
+                  let blitEncoder = commandBuffer.makeBlitCommandEncoder() else {
+                return
+            }
+
+            if crossfaderPosition < 0.0 {
+                blitEncoder.copy(from: leftTexture, to: outputTexture)
+            } else {
+                blitEncoder.copy(from: rightTexture, to: outputTexture)
+            }
+            blitEncoder.endEncoding()
+            commandBuffer.commit()
+            return
+        }
+
+        guard let commandBuffer = commandQueue.makeCommandBuffer() else {
+            return
+        }
+
+        guard let computeEncoder = commandBuffer.makeComputeCommandEncoder() else {
+            return
+        }
+
+        // Calculate blend weights from crossfader position
+        // -1.0 = full left, 0.0 = equal mix, 1.0 = full right
+        let normalizedPosition = (crossfaderPosition + 1.0) / 2.0  // Convert from [-1,1] to [0,1]
+        var leftAlpha = Float(1.0 - normalizedPosition)   // 1.0 when fully left, 0.0 when fully right
+        var rightAlpha = Float(normalizedPosition)        // 0.0 when fully left, 1.0 when fully right
+
+        computeEncoder.setComputePipelineState(alphaBlendPipelineState)
+        computeEncoder.setTexture(leftTexture, index: 0)
+        computeEncoder.setTexture(rightTexture, index: 1)
+        computeEncoder.setTexture(outputTexture, index: 2)
+        computeEncoder.setBytes(&leftAlpha, length: MemoryLayout<Float>.size, index: 0)
+        computeEncoder.setBytes(&rightAlpha, length: MemoryLayout<Float>.size, index: 1)
+
+        let threadsPerGroup = MTLSize(width: 16, height: 16, depth: 1)
+        let threadgroupsPerGrid = MTLSize(
+            width: (outputTexture.width + threadsPerGroup.width - 1) / threadsPerGroup.width,
+            height: (outputTexture.height + threadsPerGroup.height - 1) / threadsPerGroup.height,
+            depth: 1
+        )
+
+        computeEncoder.dispatchThreadgroups(threadgroupsPerGrid, threadsPerThreadgroup: threadsPerGroup)
+        computeEncoder.endEncoding()
+        commandBuffer.commit()
+
+        print("🎚️ MetalRenderer: Alpha blended effects - Position: \(crossfaderPosition), Left Alpha: \(leftAlpha), Right Alpha: \(rightAlpha)")
     }
 
     private func updateFrameBuffer(with texture: MTLTexture) {

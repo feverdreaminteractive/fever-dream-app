@@ -4,6 +4,11 @@ import Metal
 import MetalKit
 import UIKit
 
+enum CaptureMode: String, CaseIterable {
+    case photo = "PHOTO"
+    case video = "VIDEO"
+}
+
 struct ContentView: View {
     @StateObject private var cameraManager = CameraManager()
     @State private var showVideoGallery = false
@@ -13,8 +18,8 @@ struct ContentView: View {
     @State private var showPremiumMenu = false
     @StateObject private var storeManager = StoreManager()
     @State private var selectedEffect: PremiumEffect? = nil
-    @State private var showEffectSelector = false
     @State private var currentEffectIndex = 0
+    @State private var showModeSelector = false
     @State private var latestMediaThumbnail: UIImage?
     @State private var hasMediaFiles = false
 
@@ -133,10 +138,6 @@ struct ContentView: View {
         }
     }
 
-    enum CaptureMode: String, CaseIterable {
-        case photo = "PHOTO"
-        case video = "VIDEO"
-    }
 
     // Capture button for both photo and video
     var captureButton: some View {
@@ -281,34 +282,6 @@ struct ContentView: View {
         .animation(.spring(response: 0.3, dampingFraction: 0.7), value: cameraManager.isTorchOn)
     }
 
-    // Camera flip button
-    var flipCameraButton: some View {
-        Button(action: {
-            cameraManager.switchCamera()
-        }) {
-            Circle()
-                .fill(
-                    LinearGradient(colors: [Color(red: 1.0, green: 0.0, blue: 1.0).opacity(0.3), Color(red: 0.0, green: 1.0, blue: 1.0).opacity(0.3)], startPoint: .topLeading, endPoint: .bottomTrailing)
-                )
-                .frame(width: 50, height: 50, alignment: .center)
-                .overlay(
-                    Circle()
-                        .stroke(
-                            LinearGradient(colors: [Color(red: 1.0, green: 0.0, blue: 1.0).opacity(0.6), Color(red: 0.0, green: 1.0, blue: 1.0).opacity(0.6)], startPoint: .topLeading, endPoint: .bottomTrailing),
-                            lineWidth: 1
-                        )
-                )
-                .overlay(
-                    Image(systemName: "camera.rotate.fill")
-                        .foregroundColor(.white)
-                        .font(.system(size: 18))
-                )
-        }
-        .disabled(cameraManager.isRecording || cameraManager.isSwitchingCamera)
-        .opacity((cameraManager.isRecording || cameraManager.isSwitchingCamera) ? 0.5 : 1.0)
-        .scaleEffect((cameraManager.isRecording || cameraManager.isSwitchingCamera) ? 0.9 : 1.0)
-        .animation(.easeInOut(duration: 0.2), value: cameraManager.isRecording || cameraManager.isSwitchingCamera)
-    }
 
     // Loading screen view
     var loadingView: some View {
@@ -332,7 +305,6 @@ struct ContentView: View {
                 VStack {
                     topBarView
                     cameraPreviewWithGestures(reader: reader)
-                    modeSwitcherView
                     effectsSelectorView
                     cameraControlsView
                 }
@@ -344,11 +316,43 @@ struct ContentView: View {
     var topBarView: some View {
         VStack(spacing: 0) {
             HStack {
+                // Camera flip button in top left
+                Button(action: {
+                    cameraManager.switchCamera()
+                }) {
+                    Image(systemName: "camera.rotate.fill")
+                        .foregroundColor(.white)
+                        .font(.system(size: 20, weight: .medium))
+                }
+                .disabled(cameraManager.isRecording || cameraManager.isSwitchingCamera)
+                .opacity((cameraManager.isRecording || cameraManager.isSwitchingCamera) ? 0.3 : 1.0)
+                .animation(.easeInOut(duration: 0.2), value: cameraManager.isRecording || cameraManager.isSwitchingCamera)
+
                 Spacer()
+
+                // Center title
                 Text("FΣVΣЯ DЯΣΛМ")
                     .font(.system(size: 18, weight: .medium, design: .monospaced))
                     .foregroundColor(.white)
+
                 Spacer()
+
+                // Flash button in top right (like native camera app)
+                if !cameraManager.isUsingFrontCamera {
+                    Button(action: {
+                        cameraManager.toggleTorch()
+                    }) {
+                        Image(systemName: cameraManager.isTorchOn ? "flashlight.on.fill" : "flashlight.off.fill")
+                            .foregroundColor(cameraManager.isTorchOn ? .yellow : .white)
+                            .font(.system(size: 20, weight: .medium))
+                    }
+                    .disabled(cameraManager.isRecording)
+                    .opacity(cameraManager.isRecording ? 0.3 : 1.0)
+                    .animation(.spring(response: 0.3, dampingFraction: 0.7), value: cameraManager.isTorchOn)
+                } else {
+                    // Keep spacing consistent when front camera is active
+                    Color.clear.frame(width: 20, height: 20)
+                }
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 15)
@@ -386,105 +390,19 @@ struct ContentView: View {
             )
     }
 
-    // Enhanced mode switcher between photo and video
-    var modeSwitcherView: some View {
-        VStack(spacing: 0) {
-            HStack(spacing: 0) {
-                ForEach(CaptureMode.allCases, id: \.self) { mode in
-                    Button(action: {
-                        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                            captureMode = mode
-                        }
-                    }) {
-                        VStack(spacing: 6) {
-                            // Icon for each mode
-                            Image(systemName: mode == .photo ? "camera.fill" : "video.fill")
-                                .font(.system(size: 18, weight: .medium))
-                                .foregroundColor(captureMode == mode ? .white : .white.opacity(0.4))
 
-                            // Mode label
-                            Text(mode.rawValue)
-                                .font(.system(size: 12, weight: captureMode == mode ? .semibold : .medium, design: .rounded))
-                                .foregroundColor(captureMode == mode ? .white : .white.opacity(0.4))
-                        }
-                        .frame(width: 80, height: 60)
-                        .background(
-                            RoundedRectangle(cornerRadius: 16)
-                                .fill(
-                                    captureMode == mode ?
-                                    LinearGradient(colors: [Color(red: 1.0, green: 0.0, blue: 1.0).opacity(0.3), Color(red: 0.0, green: 1.0, blue: 1.0).opacity(0.3)], startPoint: .topLeading, endPoint: .bottomTrailing) :
-                                    LinearGradient(colors: [Color.clear], startPoint: .center, endPoint: .center)
-                                )
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 16)
-                                        .stroke(
-                                            captureMode == mode ?
-                                            LinearGradient(colors: [Color(red: 1.0, green: 0.0, blue: 1.0), Color(red: 0.0, green: 1.0, blue: 1.0)], startPoint: .topLeading, endPoint: .bottomTrailing) :
-                                            LinearGradient(colors: [Color.clear], startPoint: .center, endPoint: .center),
-                                            lineWidth: captureMode == mode ? 2 : 0
-                                        )
-                                )
-                        )
-                        .scaleEffect(captureMode == mode ? 1.05 : 1.0)
-                    }
-                    .disabled(cameraManager.isRecording)
-                    .opacity(cameraManager.isRecording ? 0.5 : 1.0)
-                    .animation(.spring(response: 0.3, dampingFraction: 0.7), value: captureMode)
-                    .animation(.easeInOut(duration: 0.2), value: cameraManager.isRecording)
-                }
-            }
-            .padding(.vertical, 15)
-            .padding(.horizontal, 20)
-        }
-    }
-
-    // Effects selector interface
+    // Crossfader mixer (always visible)
     var effectsSelectorView: some View {
         VStack(spacing: 0) {
-            VStack(spacing: 8) {
-                HStack {
-                    Button(action: {
-                        print("🎨 Effects button tapped!")
-                        showEffectSelector.toggle()
-                    }) {
-                        HStack(spacing: 10) {
-                            Spacer()
-
-                            VStack(alignment: .center, spacing: 2) {
-                                Text(selectedEffect?.name ?? "FEVER DREAM")
-                                    .font(.system(size: 12, weight: .semibold, design: .rounded))
-                                    .foregroundColor(Color(red: 0.0, green: 1.0, blue: 1.0))
-                            }
-
-                            Spacer()
-
-                            Image(systemName: "chevron.up")
-                                .font(.system(size: 12, weight: .medium))
-                                .foregroundColor(.white.opacity(0.6))
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 12)
-                        .background(
-                            RoundedRectangle(cornerRadius: 25)
-                                .fill(Color.black.opacity(0.6))
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 25)
-                                        .stroke(
-                                            LinearGradient(colors: [Color(red: 1.0, green: 0.0, blue: 1.0), Color(red: 0.0, green: 1.0, blue: 1.0)], startPoint: .leading, endPoint: .trailing),
-                                            lineWidth: 1.5
-                                        )
-                                )
-                        )
-                    }
+            // Always show crossfader mixer
+            if let metalRenderer = cameraManager.effectsProcessor.metalRenderer {
+                SimpleCrossfaderView(metalRenderer: metalRenderer, showingMixer: .constant(true))
                     .disabled(cameraManager.isRecording)
-                    .scaleEffect(cameraManager.isRecording ? 0.95 : 1.0)
                     .opacity(cameraManager.isRecording ? 0.6 : 1.0)
-                    .animation(.easeInOut(duration: 0.2), value: cameraManager.isRecording)
-                }
             }
-            .padding(.vertical, 15)
-            .padding(.horizontal, 20)
         }
+        .padding(.vertical, 15)
+        .padding(.horizontal, 20)
     }
 
     // Camera controls at bottom
@@ -499,18 +417,35 @@ struct ContentView: View {
 
                 Spacer()
 
-                captureButton
+                // Capture button with dropdown arrow for photo/video toggle
+                HStack(spacing: 8) {
+                    captureButton
+
+                    // Dropdown arrow for mode selection
+                    Button(action: {
+                        showModeSelector = true
+                    }) {
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundColor(.white)
+                            .frame(width: 30, height: 30)
+                            .background(
+                                Circle()
+                                    .fill(Color.black.opacity(0.6))
+                                    .overlay(
+                                        Circle()
+                                            .stroke(Color.white.opacity(0.3), lineWidth: 1)
+                                    )
+                            )
+                    }
+                    .disabled(cameraManager.isRecording)
+                    .opacity(cameraManager.isRecording ? 0.3 : 1.0)
+                }
 
                 Spacer()
 
-                HStack(spacing: 15) {
-                    // Only show flash button when using back camera
-                    if !cameraManager.isUsingFrontCamera {
-                        flashButton
-                    }
-
-                    flipCameraButton
-                }
+                // Right spacer for balance (no button needed)
+                Color.clear.frame(width: 65, height: 65)
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 20)
@@ -561,8 +496,353 @@ struct ContentView: View {
             PremiumMenuView()
                 .environmentObject(storeManager)
         }
-        .sheet(isPresented: $showEffectSelector) {
-            EffectsSelectorView(selectedEffect: $selectedEffect, storeManager: storeManager)
+        .sheet(isPresented: $showModeSelector) {
+            CaptureModePickerView(selectedMode: $captureMode)
+        }
+    }
+}
+
+enum EffectChoice: CaseIterable {
+    case feverDream
+    case hypnotist
+    case badTV
+    case strobe
+    case convergence
+
+    var displayName: String {
+        switch self {
+        case .feverDream: return "FEVER DREAM"
+        case .hypnotist: return "HYPNOTIST"
+        case .badTV: return "BAD TV"
+        case .strobe: return "STROBE"
+        case .convergence: return "CONVERGENCE"
+        }
+    }
+
+    var abbreviation: String {
+        switch self {
+        case .feverDream: return "FVR"
+        case .hypnotist: return "HYP"
+        case .badTV: return "TV"
+        case .strobe: return "STR"
+        case .convergence: return "CON"
+        }
+    }
+
+    func toPremiumEffect() -> PremiumEffect? {
+        switch self {
+        case .feverDream: return nil  // Default disco effect
+        case .hypnotist: return .crtDitherGlitch
+        case .badTV: return .badTV
+        case .strobe: return .strobe
+        case .convergence: return .convergence
+        }
+    }
+}
+
+struct SimpleCrossfaderView: View {
+    @ObservedObject var metalRenderer: MetalRenderer
+    @Binding var showingMixer: Bool
+    @State private var crossfaderPosition: Double = 0.0
+    @State private var showLeftEffectSelector = false
+    @State private var showRightEffectSelector = false
+
+    // Selectable effects
+    @State private var leftEffect: EffectChoice = .feverDream
+    @State private var rightEffect: EffectChoice = .hypnotist
+
+    var body: some View {
+        VStack {
+            // Simple Crossfader Panel
+            VStack(spacing: 15) {
+                    // Effect Labels - Selectable
+                    HStack {
+                        Button(action: {
+                            showLeftEffectSelector = true
+                        }) {
+                            HStack(spacing: 4) {
+                                Text(leftEffect.displayName)
+                                    .font(.system(size: 11, weight: .bold, design: .rounded))
+                                    .foregroundColor(crossfaderPosition < 0 ? .cyan : .cyan.opacity(0.5))
+                                Image(systemName: "chevron.down")
+                                    .font(.system(size: 8, weight: .medium))
+                                    .foregroundColor(.white.opacity(0.6))
+                            }
+                        }
+
+                        Spacer()
+
+                        Button(action: {
+                            showRightEffectSelector = true
+                        }) {
+                            HStack(spacing: 4) {
+                                Text(rightEffect.displayName)
+                                    .font(.system(size: 11, weight: .bold, design: .rounded))
+                                    .foregroundColor(crossfaderPosition > 0 ? .purple : .purple.opacity(0.5))
+                                Image(systemName: "chevron.down")
+                                    .font(.system(size: 8, weight: .medium))
+                                    .foregroundColor(.white.opacity(0.6))
+                            }
+                        }
+                    }
+
+                    // Crossfader Slider
+                    HStack {
+                        Text("L")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundColor(.cyan)
+
+                        Slider(value: $crossfaderPosition, in: -1.0...1.0)
+                            .accentColor(.white)
+
+                        Text("R")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundColor(.purple)
+                    }
+
+                    // Quick Preset Buttons
+                    HStack(spacing: 8) {
+                        Button(leftEffect.abbreviation) {
+                            withAnimation(.easeInOut(duration: 0.3)) {
+                                crossfaderPosition = -1.0
+                            }
+                        }
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color.cyan.opacity(0.7))
+                        .cornerRadius(8)
+
+                        Button("MIX") {
+                            withAnimation(.easeInOut(duration: 0.3)) {
+                                crossfaderPosition = 0.0
+                            }
+                        }
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color.yellow.opacity(0.7))
+                        .cornerRadius(8)
+
+                        Button(rightEffect.abbreviation) {
+                            withAnimation(.easeInOut(duration: 0.3)) {
+                                crossfaderPosition = 1.0
+                            }
+                        }
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color.purple.opacity(0.7))
+                        .cornerRadius(8)
+                    }
+                }
+                .padding(15)
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color.black.opacity(0.8))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(
+                                    LinearGradient(
+                                        colors: [.cyan.opacity(0.6), .purple.opacity(0.6)],
+                                        startPoint: .leading,
+                                        endPoint: .trailing
+                                    ),
+                                    lineWidth: 1
+                                )
+                        )
+                )
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+        }
+        .onChange(of: crossfaderPosition) { _, _ in updateCrossfader() }
+        .onChange(of: leftEffect) { _, _ in updateCrossfader() }
+        .onChange(of: rightEffect) { _, _ in updateCrossfader() }
+        .onAppear {
+            metalRenderer.isCrossfaderActive = true
+            updateCrossfader()
+            print("🎚️ SimpleCrossfaderView: Activated crossfader on appear")
+        }
+        .sheet(isPresented: $showLeftEffectSelector) {
+            EffectPickerView(selectedEffect: $leftEffect, title: "LEFT EFFECT")
+        }
+        .sheet(isPresented: $showRightEffectSelector) {
+            EffectPickerView(selectedEffect: $rightEffect, title: "RIGHT EFFECT")
+        }
+    }
+
+    private func updateCrossfader() {
+        metalRenderer.leftEffect = leftEffect.toPremiumEffect()
+        metalRenderer.rightEffect = rightEffect.toPremiumEffect()
+        metalRenderer.crossfaderPosition = Float(crossfaderPosition)
+        print("🎚️ SimpleCrossfaderView: Updated crossfader - Left: \(leftEffect.displayName), Right: \(rightEffect.displayName), Position: \(crossfaderPosition)")
+    }
+}
+
+struct EffectPickerView: View {
+    @Binding var selectedEffect: EffectChoice
+    let title: String
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationView {
+            ZStack {
+                Color.black.ignoresSafeArea()
+
+                ScrollView {
+                    VStack(spacing: 15) {
+                        ForEach(EffectChoice.allCases, id: \.self) { effect in
+                            Button(action: {
+                                selectedEffect = effect
+                                dismiss()
+                            }) {
+                                HStack {
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(effect.displayName)
+                                            .font(.system(size: 16, weight: .medium))
+                                            .foregroundColor(.white)
+
+                                        Text(getEffectDescription(effect))
+                                            .font(.system(size: 12))
+                                            .foregroundColor(.white.opacity(0.7))
+                                    }
+
+                                    Spacer()
+
+                                    if selectedEffect == effect {
+                                        Image(systemName: "checkmark.circle.fill")
+                                            .foregroundColor(.cyan)
+                                            .font(.system(size: 20))
+                                    }
+                                }
+                                .padding()
+                                .background(
+                                    selectedEffect == effect ?
+                                    LinearGradient(colors: [Color.cyan.opacity(0.2), Color.purple.opacity(0.2)], startPoint: .leading, endPoint: .trailing) :
+                                    LinearGradient(colors: [Color.white.opacity(0.05)], startPoint: .center, endPoint: .center)
+                                )
+                                .cornerRadius(12)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .stroke(
+                                            selectedEffect == effect ?
+                                            LinearGradient(colors: [Color.cyan, Color.purple], startPoint: .leading, endPoint: .trailing) :
+                                            LinearGradient(colors: [Color.clear], startPoint: .center, endPoint: .center),
+                                            lineWidth: selectedEffect == effect ? 2 : 0
+                                        )
+                                )
+                            }
+                            .buttonStyle(PlainButtonStyle())
+                        }
+                    }
+                    .padding()
+                }
+            }
+            .navigationTitle(title)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") {
+                        dismiss()
+                    }
+                    .foregroundColor(.white)
+                }
+            }
+        }
+    }
+
+    private func getEffectDescription(_ effect: EffectChoice) -> String {
+        switch effect {
+        case .feverDream: return "Classic retro vibes with audio-reactive colors"
+        case .hypnotist: return "Mesmerizing CRT dither glitch patterns"
+        case .badTV: return "Vintage television distortion effects"
+        case .strobe: return "Intense flashing light sequences"
+        case .convergence: return "Extreme audio-reactive visual convergence"
+        }
+    }
+}
+
+struct CaptureModePickerView: View {
+    @Binding var selectedMode: CaptureMode
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationView {
+            ZStack {
+                Color.black.ignoresSafeArea()
+
+                VStack(spacing: 20) {
+                    ForEach(CaptureMode.allCases, id: \.self) { mode in
+                        Button(action: {
+                            selectedMode = mode
+                            dismiss()
+                        }) {
+                            HStack {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    HStack(spacing: 8) {
+                                        Image(systemName: mode == .photo ? "camera.fill" : "video.fill")
+                                            .font(.system(size: 20, weight: .medium))
+                                            .foregroundColor(.white)
+
+                                        Text(mode.rawValue)
+                                            .font(.system(size: 18, weight: .medium))
+                                            .foregroundColor(.white)
+                                    }
+
+                                    Text(getModeDescription(mode))
+                                        .font(.system(size: 14))
+                                        .foregroundColor(.white.opacity(0.7))
+                                }
+
+                                Spacer()
+
+                                if selectedMode == mode {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .foregroundColor(.cyan)
+                                        .font(.system(size: 24))
+                                }
+                            }
+                            .padding(20)
+                            .background(
+                                selectedMode == mode ?
+                                LinearGradient(colors: [Color.cyan.opacity(0.2), Color.purple.opacity(0.2)], startPoint: .leading, endPoint: .trailing) :
+                                LinearGradient(colors: [Color.white.opacity(0.05)], startPoint: .center, endPoint: .center)
+                            )
+                            .cornerRadius(16)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 16)
+                                    .stroke(
+                                        selectedMode == mode ?
+                                        LinearGradient(colors: [Color.cyan, Color.purple], startPoint: .leading, endPoint: .trailing) :
+                                        LinearGradient(colors: [Color.clear], startPoint: .center, endPoint: .center),
+                                        lineWidth: selectedMode == mode ? 2 : 0
+                                    )
+                            )
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                    }
+                }
+                .padding()
+            }
+            .navigationTitle("CAPTURE MODE")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") {
+                        dismiss()
+                    }
+                    .foregroundColor(.white)
+                }
+            }
+        }
+    }
+
+    private func getModeDescription(_ mode: CaptureMode) -> String {
+        switch mode {
+        case .photo: return "Capture still images with effects"
+        case .video: return "Record video with real-time effects"
         }
     }
 }

@@ -16,7 +16,7 @@ class VideoEffectsProcessor: NSObject {
     private var outputTexture: MTLTexture?
 
     // Add missing MetalRenderer instance
-    private var metalRenderer: MetalRenderer?
+    var metalRenderer: MetalRenderer?
 
     // Audio manager for audio-reactive effects
     var audioManager: AudioManager?
