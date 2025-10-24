@@ -402,7 +402,7 @@ struct ContentView: View {
         VStack(spacing: 0) {
             // Always show crossfader mixer
             if let metalRenderer = cameraManager.effectsProcessor.metalRenderer {
-                SimpleCrossfaderView(metalRenderer: metalRenderer, showingMixer: .constant(true))
+                SimpleCrossfaderView(metalRenderer: metalRenderer, showingMixer: .constant(true), storeManager: storeManager)
                     .disabled(cameraManager.isRecording)
                     .opacity(cameraManager.isRecording ? 0.6 : 1.0)
             }
@@ -540,18 +540,39 @@ enum EffectChoice: CaseIterable {
         case .convergence: return .convergence
         }
     }
+
+    var isBasicEffect: Bool {
+        switch self {
+        case .feverDream, .strobe: return true  // Basic users get disco and strobe
+        case .hypnotist, .badTV, .convergence: return false  // Premium only
+        }
+    }
+
+    var requiresPremium: Bool {
+        return !isBasicEffect
+    }
 }
 
 struct SimpleCrossfaderView: View {
     @ObservedObject var metalRenderer: MetalRenderer
     @Binding var showingMixer: Bool
+    @ObservedObject var storeManager: StoreManager
     @State private var crossfaderPosition: Double = 0.0
     @State private var showLeftEffectSelector = false
     @State private var showRightEffectSelector = false
 
     // Selectable effects
     @State private var leftEffect: EffectChoice = .feverDream
-    @State private var rightEffect: EffectChoice = .hypnotist
+    @State private var rightEffect: EffectChoice = .strobe  // Default to strobe for basic users
+
+    // Available effects based on subscription status
+    var availableEffects: [EffectChoice] {
+        if storeManager.hasSubscription {
+            return EffectChoice.allCases  // Premium users get all effects
+        } else {
+            return EffectChoice.allCases.filter { $0.isBasicEffect }  // Basic users get disco + strobe
+        }
+    }
 
     var body: some View {
         VStack {
@@ -668,10 +689,10 @@ struct SimpleCrossfaderView: View {
             print("🎚️ SimpleCrossfaderView: Activated crossfader on appear")
         }
         .sheet(isPresented: $showLeftEffectSelector) {
-            EffectPickerView(selectedEffect: $leftEffect, title: "LEFT EFFECT")
+            EffectPickerView(selectedEffect: $leftEffect, title: "LEFT EFFECT", availableEffects: availableEffects, storeManager: storeManager)
         }
         .sheet(isPresented: $showRightEffectSelector) {
-            EffectPickerView(selectedEffect: $rightEffect, title: "RIGHT EFFECT")
+            EffectPickerView(selectedEffect: $rightEffect, title: "RIGHT EFFECT", availableEffects: availableEffects, storeManager: storeManager)
         }
     }
 
@@ -686,6 +707,8 @@ struct SimpleCrossfaderView: View {
 struct EffectPickerView: View {
     @Binding var selectedEffect: EffectChoice
     let title: String
+    let availableEffects: [EffectChoice]
+    let storeManager: StoreManager
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -695,7 +718,8 @@ struct EffectPickerView: View {
 
                 ScrollView {
                     VStack(spacing: 15) {
-                        ForEach(EffectChoice.allCases, id: \.self) { effect in
+                        // Available effects section
+                        ForEach(availableEffects, id: \.self) { effect in
                             Button(action: {
                                 selectedEffect = effect
                                 dismiss()
@@ -737,6 +761,81 @@ struct EffectPickerView: View {
                                 )
                             }
                             .buttonStyle(PlainButtonStyle())
+                        }
+
+                        // Premium effects preview for basic users
+                        if !storeManager.hasSubscription {
+                            VStack(spacing: 12) {
+                                Text("PREMIUM EFFECTS")
+                                    .font(.system(size: 12, weight: .bold))
+                                    .foregroundColor(.white.opacity(0.6))
+                                    .padding(.top, 20)
+
+                                ForEach(EffectChoice.allCases.filter { $0.requiresPremium }, id: \.self) { effect in
+                                    VStack {
+                                        HStack {
+                                            VStack(alignment: .leading, spacing: 4) {
+                                                HStack {
+                                                    Text(effect.displayName)
+                                                        .font(.system(size: 16, weight: .medium))
+                                                        .foregroundColor(.white.opacity(0.5))
+
+                                                    Image(systemName: "crown.fill")
+                                                        .foregroundColor(.yellow)
+                                                        .font(.system(size: 12))
+                                                }
+
+                                                Text(getEffectDescription(effect))
+                                                    .font(.system(size: 12))
+                                                    .foregroundColor(.white.opacity(0.4))
+                                            }
+
+                                            Spacer()
+
+                                            Text("PREMIUM")
+                                                .font(.system(size: 10, weight: .bold))
+                                                .foregroundColor(.yellow)
+                                                .padding(.horizontal, 8)
+                                                .padding(.vertical, 4)
+                                                .background(Color.yellow.opacity(0.2))
+                                                .cornerRadius(6)
+                                        }
+                                        .padding()
+                                        .background(Color.white.opacity(0.02))
+                                        .cornerRadius(12)
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 12)
+                                                .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                                        )
+                                    }
+                                }
+
+                                Button(action: {
+                                    dismiss()
+                                    // This would trigger the premium menu
+                                }) {
+                                    HStack {
+                                        Image(systemName: "crown.fill")
+                                            .foregroundColor(.yellow)
+                                        Text("UPGRADE TO PREMIUM")
+                                            .font(.system(size: 14, weight: .bold))
+                                            .foregroundColor(.white)
+                                    }
+                                    .padding()
+                                    .background(
+                                        LinearGradient(colors: [.yellow.opacity(0.3), .orange.opacity(0.3)], startPoint: .leading, endPoint: .trailing)
+                                    )
+                                    .cornerRadius(12)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 12)
+                                            .stroke(
+                                                LinearGradient(colors: [.yellow, .orange], startPoint: .leading, endPoint: .trailing),
+                                                lineWidth: 2
+                                            )
+                                    )
+                                }
+                                .buttonStyle(PlainButtonStyle())
+                            }
                         }
                     }
                     .padding()
