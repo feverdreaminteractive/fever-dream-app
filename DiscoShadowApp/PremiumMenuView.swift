@@ -3,8 +3,8 @@ import StoreKit
 
 struct PremiumMenuView: View {
     @Environment(\.dismiss) private var dismiss
-    @StateObject private var storeManager = StoreManager()
-    @State private var showingSubscriptionSheet = false
+    @EnvironmentObject var storeManager: StoreManager
+    @State private var isPurchasing = false
     @State private var showingIndividualEffectSheet = false
     @State private var selectedEffect: PremiumEffect?
 
@@ -47,10 +47,17 @@ struct PremiumMenuView: View {
                                         .foregroundColor(.white)
                                 }
 
-                                Text("All 4 premium effects included • 1 month free trial")
-                                    .font(.system(size: 14))
-                                    .foregroundColor(.white.opacity(0.8))
-                                    .multilineTextAlignment(.center)
+                                VStack(spacing: 8) {
+                                    Text("All 4 premium effects included • 1 month free trial")
+                                        .font(.system(size: 14))
+                                        .foregroundColor(.white.opacity(0.8))
+                                        .multilineTextAlignment(.center)
+
+                                    Text("🎛️ NEW: Crossfader feature coming soon")
+                                        .font(.system(size: 13, weight: .medium))
+                                        .foregroundColor(Color(red: 0.0, green: 1.0, blue: 1.0))
+                                        .multilineTextAlignment(.center)
+                                }
 
                                 VStack(spacing: 5) {
                                     HStack(alignment: .firstTextBaseline, spacing: 4) {
@@ -72,11 +79,47 @@ struct PremiumMenuView: View {
                             }
 
                             Button(action: {
-                                showingSubscriptionSheet = true
+                                Task {
+                                    print("🛒 Button tapped - checking for products...")
+                                    print("🛒 Available products: \(storeManager.products.map { $0.id })")
+
+                                    // Force reload products if none are loaded
+                                    if storeManager.products.isEmpty {
+                                        print("🛒 No products loaded, forcing reload...")
+                                        storeManager.loadProducts()
+
+                                        // Wait a moment for products to load
+                                        try await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds
+                                        print("🛒 After reload, products: \(storeManager.products.map { $0.id })")
+                                    }
+
+                                    guard let product = storeManager.subscriptionProduct() else {
+                                        print("🛒 ERROR: No subscription product found!")
+                                        print("🛒 Products loaded: \(storeManager.products.count)")
+                                        print("🛒 Error message: \(storeManager.errorMessage ?? "none")")
+                                        return
+                                    }
+
+                                    print("🛒 Found product: \(product.id) - \(product.displayName)")
+                                    isPurchasing = true
+                                    do {
+                                        print("🛒 Starting purchase...")
+                                        try await storeManager.purchase(product)
+                                        print("🛒 Purchase completed!")
+                                    } catch {
+                                        print("🛒 Purchase failed: \(error)")
+                                    }
+                                    isPurchasing = false
+                                }
                             }) {
                                 HStack(spacing: 8) {
-                                    Image(systemName: "play.fill")
-                                        .font(.system(size: 16, weight: .bold))
+                                    if isPurchasing {
+                                        ProgressView()
+                                            .progressViewStyle(CircularProgressViewStyle(tint: .black))
+                                    } else {
+                                        Image(systemName: "play.fill")
+                                            .font(.system(size: 16, weight: .bold))
+                                    }
                                     Text("START FREE TRIAL")
                                         .font(.system(size: 16, weight: .bold, design: .rounded))
                                 }
@@ -93,8 +136,9 @@ struct PremiumMenuView: View {
                                 .cornerRadius(25)
                                 .shadow(color: .green.opacity(0.4), radius: 8, x: 0, y: 4)
                             }
+                            .disabled(isPurchasing)
                             .scaleEffect(1.0)
-                            .animation(.spring(response: 0.3, dampingFraction: 0.6), value: showingSubscriptionSheet)
+                            .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isPurchasing)
                         }
                         .padding()
                         .background(
@@ -124,7 +168,16 @@ struct PremiumMenuView: View {
                                         onTap: {
                                             // All effects included in subscription - no individual purchases
                                             if !storeManager.hasSubscription {
-                                                showingSubscriptionSheet = true
+                                                Task {
+                                                    guard let product = storeManager.subscriptionProduct() else { return }
+                                                    isPurchasing = true
+                                                    do {
+                                                        try await storeManager.purchase(product)
+                                                    } catch {
+                                                        print("Purchase failed: \(error)")
+                                                    }
+                                                    isPurchasing = false
+                                                }
                                             }
                                         }
                                     )
@@ -141,6 +194,10 @@ struct PremiumMenuView: View {
 
                             VStack(spacing: 4) {
                                 Text("✨ Unlimited access to all premium effects")
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundColor(.white.opacity(0.9))
+
+                                Text("🎛️ Early access to new crossfader feature")
                                     .font(.system(size: 12, weight: .medium))
                                     .foregroundColor(.white.opacity(0.9))
 
@@ -170,9 +227,6 @@ struct PremiumMenuView: View {
                     .foregroundColor(.white)
                 }
             }
-        }
-        .sheet(isPresented: $showingSubscriptionSheet) {
-            SubscriptionPurchaseSheet(storeManager: storeManager)
         }
         .sheet(isPresented: $showingIndividualEffectSheet) {
             if let effect = selectedEffect {

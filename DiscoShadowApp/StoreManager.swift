@@ -10,12 +10,12 @@ class StoreManager: NSObject, ObservableObject {
     @Published var errorMessage: String?
 
     private let productIdentifiers = Set([
-        "fever_dream_subscription_monthly"
+        "feverdream.premium.monthly"
         // Note: Individual effects no longer sold separately - subscription only
     ])
 
     var hasSubscription: Bool {
-        return purchasedProducts.contains("fever_dream_subscription_monthly")
+        return purchasedProducts.contains("feverdream.premium.monthly")
     }
 
     var ownedEffects: Set<String> {
@@ -38,15 +38,28 @@ class StoreManager: NSObject, ObservableObject {
     }
 
     func loadProducts() {
+        print("🏪 StoreManager: Starting to load products...")
+        print("🏪 StoreManager: Product identifiers: \(productIdentifiers)")
+        print("🏪 StoreManager: Current thread: \(Thread.current)")
         isLoading = true
         errorMessage = nil
 
-        Task {
+        Task { @MainActor in
+            print("🏪 StoreManager: Task started...")
             do {
+                print("🏪 StoreManager: Calling Product.products...")
                 let storeProducts = try await Product.products(for: productIdentifiers)
+                print("🏪 StoreManager: Product.products returned")
+                print("🏪 StoreManager: Loaded \(storeProducts.count) products")
+                for product in storeProducts {
+                    print("🏪 StoreManager: Product - ID: \(product.id), Name: \(product.displayName), Price: \(product.displayPrice)")
+                }
                 self.products = storeProducts.sorted { $0.displayPrice < $1.displayPrice }
                 self.isLoading = false
+                print("🏪 StoreManager: Products loading complete")
             } catch {
+                print("🏪 StoreManager: ERROR loading products: \(error)")
+                print("🏪 StoreManager: Error type: \(type(of: error))")
                 self.errorMessage = "Failed to load products: \(error.localizedDescription)"
                 self.isLoading = false
             }
@@ -54,21 +67,30 @@ class StoreManager: NSObject, ObservableObject {
     }
 
     func purchase(_ product: Product) async throws {
+        print("💳 StoreManager: Starting purchase for product: \(product.id)")
         let result = try await product.purchase()
+        print("💳 StoreManager: Purchase result received")
 
         switch result {
         case .success(let verification):
+            print("💳 StoreManager: Purchase successful, verifying...")
             let transaction = try checkVerified(verification)
             await transaction.finish()
             await updatePurchasedProducts()
+            print("💳 StoreManager: Purchase completed and verified")
+            print("💳 StoreManager: Purchased products: \(purchasedProducts)")
+            print("💳 StoreManager: Has subscription: \(hasSubscription)")
 
         case .userCancelled:
+            print("💳 StoreManager: Purchase cancelled by user")
             break
 
         case .pending:
+            print("💳 StoreManager: Purchase pending")
             break
 
         @unknown default:
+            print("💳 StoreManager: Unknown purchase result")
             break
         }
     }
@@ -96,32 +118,44 @@ class StoreManager: NSObject, ObservableObject {
     }
 
     private func updatePurchasedProducts() async {
+        print("🔄 StoreManager: Updating purchased products...")
+        var foundTransactions = 0
+
         for await result in Transaction.currentEntitlements {
+            foundTransactions += 1
             do {
                 let transaction = try checkVerified(result)
+                print("🔄 StoreManager: Found transaction - Product: \(transaction.productID), Type: \(transaction.productType), Revoked: \(transaction.revocationDate != nil)")
 
                 switch transaction.productType {
                 case .autoRenewable:
                     if transaction.revocationDate == nil {
                         purchasedProducts.insert(transaction.productID)
+                        print("🔄 StoreManager: Added auto-renewable subscription: \(transaction.productID)")
                     } else {
                         purchasedProducts.remove(transaction.productID)
+                        print("🔄 StoreManager: Removed revoked subscription: \(transaction.productID)")
                     }
 
                 case .nonConsumable:
                     if transaction.revocationDate == nil {
                         purchasedProducts.insert(transaction.productID)
+                        print("🔄 StoreManager: Added non-consumable: \(transaction.productID)")
                     } else {
                         purchasedProducts.remove(transaction.productID)
+                        print("🔄 StoreManager: Removed revoked non-consumable: \(transaction.productID)")
                     }
 
                 default:
+                    print("🔄 StoreManager: Skipping transaction type: \(transaction.productType)")
                     break
                 }
             } catch {
-                print("Failed to verify transaction: \(error)")
+                print("🔄 StoreManager: Failed to verify transaction: \(error)")
             }
         }
+
+        print("🔄 StoreManager: Update complete. Found \(foundTransactions) transactions. Purchased products: \(purchasedProducts)")
     }
 
     func productForEffect(_ effect: PremiumEffect) -> Product? {
@@ -129,7 +163,7 @@ class StoreManager: NSObject, ObservableObject {
     }
 
     func subscriptionProduct() -> Product? {
-        return products.first { $0.id == "fever_dream_subscription_monthly" }
+        return products.first { $0.id == "feverdream.premium.monthly" }
     }
 
     func canUseEffect(_ effect: PremiumEffect) -> Bool {

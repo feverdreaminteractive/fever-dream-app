@@ -1,4 +1,14 @@
 {
+  "appPolicies" : {
+    "eula" : "",
+    "policies" : [
+      {
+        "locale" : "en_US",
+        "policyText" : "",
+        "policyURL" : ""
+      }
+    ]
+  },
   "identifier" : "D5B9E0A2",
   "nonRenewingSubscriptions" : [
 
@@ -8,6 +18,8 @@
   ],
   "settings" : {
     "_failTransactionsEnabled" : false,
+    "_locale" : "en_US",
+    "_storefront" : "USA",
     "_storeKitErrors" : [
       {
         "current" : null,
@@ -87,17 +99,20 @@
               "locale" : "en_US"
             }
           ],
-          "productID" : "fever_dream_subscription_monthly",
+          "productID" : "feverdream.premium.monthly",
           "recurringSubscriptionPeriod" : "P1M",
           "referenceName" : "Fever Dream Monthly Subscription",
           "subscriptionGroupID" : "21444634",
-          "type" : "RecurringSubscription"
+          "type" : "RecurringSubscription",
+          "winbackOffers" : [
+
+          ]
         }
       ]
     }
   ],
   "version" : {
-    "major" : 3,
+    "major" : 4,
     "minor" : 0
   }
 }

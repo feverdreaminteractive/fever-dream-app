@@ -155,65 +155,64 @@ struct ContentView: View {
             }
         }) {
             ZStack {
-                // Outer ring with gradient animation
+                // Always maintain the same outer dimensions to prevent UI shifts
                 Circle()
-                    .fill(
-                        cameraManager.isRecording ?
-                        LinearGradient(colors: [Color(red: 1.0, green: 0.0, blue: 1.0), Color(red: 0.0, green: 1.0, blue: 1.0)], startPoint: .topLeading, endPoint: .bottomTrailing) :
-                        LinearGradient(colors: [.white], startPoint: .center, endPoint: .center)
-                    )
+                    .fill(Color.clear)
                     .frame(width: 80, height: 80)
-                    .scaleEffect(cameraManager.isRecording ? 1.1 : 1.0)
-                    .opacity(cameraManager.isRecording ? 0.9 : 1.0)
 
                 if captureMode == .video {
+                    // Native iOS-style video record button
+                    // Outer white circle with thin border (like native app)
                     Circle()
-                        .fill(
-                            cameraManager.isRecording ?
-                            LinearGradient(colors: [Color(red: 1.0, green: 0.0, blue: 1.0), .red], startPoint: .topLeading, endPoint: .bottomTrailing) :
-                            LinearGradient(colors: [.white], startPoint: .center, endPoint: .center)
-                        )
-                        .frame(width: 65, height: 65)
+                        .fill(Color.white)
+                        .frame(width: 70, height: 70)
                         .overlay(
                             Circle()
-                                .stroke(Color.black.opacity(0.8), lineWidth: 2)
+                                .stroke(Color.black.opacity(0.1), lineWidth: 1)
                         )
-                        .scaleEffect(cameraManager.isRecording ? 0.9 : 1.0)
 
+                    // Inner element that changes when recording
                     if cameraManager.isRecording {
-                        RoundedRectangle(cornerRadius: 6)
-                            .foregroundColor(.white)
-                            .frame(width: 28, height: 28)
-                            .shadow(color: .black.opacity(0.3), radius: 2, x: 0, y: 1)
+                        // Recording state: red rounded square
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(Color.red)
+                            .frame(width: 20, height: 20)
+                    } else {
+                        // Not recording: red circle inside white circle
+                        Circle()
+                            .fill(Color.red)
+                            .frame(width: 50, height: 50)
+                    }
+
+                    // Recording pulse effect (outer ring)
+                    if cameraManager.isRecording {
+                        Circle()
+                            .stroke(Color.red.opacity(0.6), lineWidth: 2)
+                            .frame(width: 80, height: 80)
+                            .scaleEffect(1.2)
+                            .opacity(0.8)
+                            .animation(
+                                .easeInOut(duration: 1.0)
+                                .repeatForever(autoreverses: true),
+                                value: cameraManager.isRecording
+                            )
                     }
                 } else {
-                    // Photo mode - simple white circle with subtle animation
+                    // Photo mode - classic camera button style
+                    // Outer white circle with thin border
                     Circle()
-                        .stroke(Color.black.opacity(0.8), lineWidth: 2)
-                        .frame(width: 65, height: 65)
-                        .scaleEffect(1.0)
-                }
-
-                // Recording pulse effect with gradient
-                if cameraManager.isRecording {
-                    Circle()
-                        .stroke(
-                            LinearGradient(colors: [Color(red: 0.0, green: 1.0, blue: 1.0).opacity(0.8), Color(red: 1.0, green: 0.0, blue: 1.0).opacity(0.8)], startPoint: .topLeading, endPoint: .bottomTrailing),
-                            lineWidth: 3
-                        )
-                        .frame(width: 90, height: 90)
-                        .scaleEffect(1.2)
-                        .opacity(0.7)
-                        .animation(
-                            .easeInOut(duration: 1.0)
-                            .repeatForever(autoreverses: true),
-                            value: cameraManager.isRecording
+                        .fill(Color.white)
+                        .frame(width: 70, height: 70)
+                        .overlay(
+                            Circle()
+                                .stroke(Color.black.opacity(0.1), lineWidth: 1)
                         )
                 }
             }
         }
-        .animation(.spring(response: 0.4, dampingFraction: 0.7), value: cameraManager.isRecording)
-        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: captureMode)
+        .frame(width: 80, height: 80) // Fixed frame to prevent shifts
+        .animation(.spring(response: 0.2, dampingFraction: 0.8), value: cameraManager.isRecording)
+        .animation(.spring(response: 0.2, dampingFraction: 0.8), value: captureMode)
     }
 
     // Media thumbnail preview showing latest captured media
@@ -344,14 +343,32 @@ struct ContentView: View {
     var topBarView: some View {
         VStack(spacing: 0) {
             HStack {
+                // Flash button on top-left (only for back camera)
+                if !cameraManager.isUsingFrontCamera {
+                    flashButton
+                } else {
+                    // Empty space to keep title centered
+                    Color.clear
+                        .frame(width: 44, height: 44)
+                }
+
                 Spacer()
+
                 Text("FΣVΣЯ DЯΣΛМ")
                     .font(.system(size: 18, weight: .medium, design: .monospaced))
                     .foregroundColor(.white)
+
                 Spacer()
+
+                // Flip camera button on top-right
+                flipCameraButton
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 15)
+            .background(
+                Color.black.opacity(0.4)
+                    .ignoresSafeArea(.all, edges: .top)
+            )
         }
         .zIndex(100) // Ensure top bar stays on top
     }
@@ -511,21 +528,21 @@ struct ContentView: View {
 
                 Spacer()
 
+                // Centered capture button
                 captureButton
 
                 Spacer()
 
-                HStack(spacing: 15) {
-                    // Only show flash button when using back camera
-                    if !cameraManager.isUsingFrontCamera {
-                        flashButton
-                    }
-
-                    flipCameraButton
-                }
+                // Empty space to balance the layout (same width as gallery button)
+                Color.clear
+                    .frame(width: 65, height: 65)
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 20)
+            .background(
+                Color.black.opacity(0.4)
+                    .ignoresSafeArea(.all, edges: .bottom)
+            )
         }
     }
 
@@ -790,15 +807,36 @@ struct LoadingScreenView: View {
             Color.black.ignoresSafeArea()
 
             VStack(spacing: 20) {
-                // App title
-                Text("FΣVΣЯ DЯΣΛM")
-                    .font(.system(size: 48, weight: .black, design: .rounded))
-                    .foregroundColor(.white)
+                // App title with chromatic aberration effect
+                ZStack {
+                    // Red channel (shifted right)
+                    Text("FΣVΣЯ DЯΣΛM")
+                        .font(.system(size: 48, weight: .black, design: .rounded))
+                        .foregroundColor(.red)
+                        .offset(x: 2, y: 0)
+                        .opacity(0.8)
 
-                // Loading text
-                Text("Loading")
-                    .font(.system(size: 18, weight: .medium))
-                    .foregroundColor(.white)
+                    // Green channel (centered)
+                    Text("FΣVΣЯ DЯΣΛM")
+                        .font(.system(size: 48, weight: .black, design: .rounded))
+                        .foregroundColor(.green)
+                        .offset(x: 0, y: 0)
+                        .opacity(0.8)
+
+                    // Blue channel (shifted left)
+                    Text("FΣVΣЯ DЯΣΛM")
+                        .font(.system(size: 48, weight: .black, design: .rounded))
+                        .foregroundColor(.blue)
+                        .offset(x: -2, y: 0)
+                        .opacity(0.8)
+
+                    // White overlay for readability
+                    Text("FΣVΣЯ DЯΣΛM")
+                        .font(.system(size: 48, weight: .black, design: .rounded))
+                        .foregroundColor(.white)
+                        .opacity(0.9)
+                }
+                .shadow(color: Color(red: 1.0, green: 0.0, blue: 1.0).opacity(0.3), radius: 15, x: 0, y: 0)
             }
         }
     }
