@@ -356,6 +356,12 @@ struct ContentView: View {
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 15)
+            .background(
+                // Low opacity bar for better button visibility
+                RoundedRectangle(cornerRadius: 0)
+                    .fill(Color.black.opacity(0.3))
+                    .blur(radius: 10)
+            )
         }
         .zIndex(100) // Ensure top bar stays on top
     }
@@ -409,6 +415,7 @@ struct ContentView: View {
     var cameraControlsView: some View {
         VStack(spacing: 0) {
             HStack {
+                // Left side - Gallery thumbnail
                 Button(action: {
                     showVideoGallery = true
                 }) {
@@ -417,35 +424,30 @@ struct ContentView: View {
 
                 Spacer()
 
-                // Capture button with dropdown arrow for photo/video toggle
-                HStack(spacing: 8) {
-                    captureButton
-
-                    // Dropdown arrow for mode selection
-                    Button(action: {
-                        showModeSelector = true
-                    }) {
-                        Image(systemName: "chevron.down")
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundColor(.white)
-                            .frame(width: 30, height: 30)
-                            .background(
-                                Circle()
-                                    .fill(Color.black.opacity(0.6))
-                                    .overlay(
-                                        Circle()
-                                            .stroke(Color.white.opacity(0.3), lineWidth: 1)
-                                    )
-                            )
-                    }
-                    .disabled(cameraManager.isRecording)
-                    .opacity(cameraManager.isRecording ? 0.3 : 1.0)
-                }
+                // Center - Capture button only (centered under MIX)
+                captureButton
 
                 Spacer()
 
-                // Right spacer for balance (no button needed)
-                Color.clear.frame(width: 65, height: 65)
+                // Right side - Mode dropdown arrow (positioned to balance)
+                Button(action: {
+                    showModeSelector = true
+                }) {
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(.white)
+                        .frame(width: 30, height: 30)
+                        .background(
+                            Circle()
+                                .fill(Color.black.opacity(0.6))
+                                .overlay(
+                                    Circle()
+                                        .stroke(Color.white.opacity(0.3), lineWidth: 1)
+                                )
+                        )
+                }
+                .disabled(cameraManager.isRecording)
+                .opacity(cameraManager.isRecording ? 0.3 : 1.0)
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 20)

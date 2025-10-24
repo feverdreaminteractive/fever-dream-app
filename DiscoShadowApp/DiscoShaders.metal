@@ -1795,3 +1795,4 @@ kernel void alphaBlendEffects(texture2d<float, access::read> leftTexture [[textu
 
     outputTexture.write(blendedPixel, gid);
 }
+
