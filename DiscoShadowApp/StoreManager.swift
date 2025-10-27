@@ -291,6 +291,58 @@ struct SubscriptionPurchaseSheet: View {
                             .disabled(isPurchasing)
                         }
                     }
+
+                    // Required subscription information per Apple guidelines
+                    VStack(spacing: 12) {
+                        // Subscription details
+                        VStack(spacing: 8) {
+                            Text("Auto-renewable Subscription")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundColor(.white.opacity(0.8))
+
+                            if let product = storeManager.subscriptionProduct() {
+                                Text("• Title: FEVER DREAM Premium")
+                                    .font(.system(size: 11))
+                                    .foregroundColor(.white.opacity(0.7))
+
+                                Text("• Length: 1 month")
+                                    .font(.system(size: 11))
+                                    .foregroundColor(.white.opacity(0.7))
+
+                                Text("• Price: \(product.displayPrice) per month")
+                                    .font(.system(size: 11))
+                                    .foregroundColor(.white.opacity(0.7))
+                            }
+                        }
+
+                        // Required links
+                        HStack(spacing: 20) {
+                            Button("Terms of Use") {
+                                if let url = URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/") {
+                                    UIApplication.shared.open(url)
+                                }
+                            }
+                            .font(.system(size: 12))
+                            .foregroundColor(.blue)
+                            .underline()
+
+                            Button("Privacy Policy") {
+                                if let url = URL(string: "https://discoshadowapp.com/privacy") {
+                                    UIApplication.shared.open(url)
+                                }
+                            }
+                            .font(.system(size: 12))
+                            .foregroundColor(.blue)
+                            .underline()
+                        }
+
+                        Text("Payment charged to iTunes Account at confirmation. Subscription automatically renews unless auto-renew is turned off at least 24-hours before the end of the current period. Account charged for renewal within 24-hours prior to the end of the current period. Manage subscriptions in Account Settings after purchase.")
+                            .font(.system(size: 9))
+                            .foregroundColor(.white.opacity(0.6))
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 10)
+                    }
+                    .padding(.bottom, 20)
                 }
                 .padding()
             }
