@@ -327,7 +327,7 @@ struct SubscriptionPurchaseSheet: View {
                             .underline()
 
                             Button("Privacy Policy") {
-                                if let url = URL(string: "https://discoshadowapp.com/privacy") {
+                                if let url = URL(string: "https://feverdreaminteractive.github.io/fever-dream-privacy/") {
                                     UIApplication.shared.open(url)
                                 }
                             }
