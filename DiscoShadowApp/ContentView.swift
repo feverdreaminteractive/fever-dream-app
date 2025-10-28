@@ -1055,21 +1055,25 @@ struct CrossfaderView: View {
         )
         .onChange(of: crossfaderPosition) { _, _ in updateMixer() }
         .onAppear {
-            print("🎚️ CrossfaderView: Mixer appearing, activating crossfader")
-            updateMixer()
+            print("🎚️ CrossfaderView: Mixer appearing")
+            // Don't auto-activate crossfader - let user control it
         }
     }
 
     private func updateMixer() {
-        // Enable crossfader mode in MetalRenderer
-        metalRenderer.isCrossfaderActive = true
+        // Only activate crossfader when user moves it away from center
+        let shouldActivateCrossfader = abs(crossfaderPosition) > 0.1
+        metalRenderer.isCrossfaderActive = shouldActivateCrossfader
 
-        // Set the two effects and crossfader position
-        metalRenderer.leftEffect = leftEffect
-        metalRenderer.rightEffect = rightEffect
-        metalRenderer.crossfaderPosition = Float(crossfaderPosition)
-
-        print("🎚️ CrossfaderView: Crossfader updated - Position: \(crossfaderPosition), Left: \(leftEffect), Right: \(rightEffect)")
+        if shouldActivateCrossfader {
+            // Set the two effects and crossfader position
+            metalRenderer.leftEffect = leftEffect
+            metalRenderer.rightEffect = rightEffect
+            metalRenderer.crossfaderPosition = Float(crossfaderPosition)
+            print("🎚️ CrossfaderView: Crossfader activated - Position: \(crossfaderPosition), Left: \(leftEffect), Right: \(rightEffect)")
+        } else {
+            print("🎚️ CrossfaderView: Crossfader disabled - normal effects active")
+        }
     }
 }
 
