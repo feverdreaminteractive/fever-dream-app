@@ -323,6 +323,9 @@ enum PremiumEffect: String, CaseIterable, Identifiable {
     case badTV = "bad_tv_effect"
     case strobe = "strobe_effect"
     case convergence = "convergence_effect"
+    case tunnel = "tunnel_effect"
+    case analogGlitch = "analog_glitch_effect"
+    case kaleidoscope = "kaleidoscope_effect"
 
     var id: String { rawValue }
 
@@ -332,6 +335,9 @@ enum PremiumEffect: String, CaseIterable, Identifiable {
         case .badTV: return "BAD TV"
         case .strobe: return "STROBE"
         case .convergence: return "CONVERGENCE"
+        case .tunnel: return "TUNNEL"
+        case .analogGlitch: return "ANALOG GLITCH"
+        case .kaleidoscope: return "KALEIDOSCOPE"
         }
     }
 
@@ -341,6 +347,9 @@ enum PremiumEffect: String, CaseIterable, Identifiable {
         case .badTV: return "Infinite feedback loops with vintage TV static, creating hypnotic recursive visuals"
         case .strobe: return "Audio-reactive RGB color channel strobing with independent frequency control"
         case .convergence: return "RGB channel separation with random displacement creating chromatic aberration glitch effects"
+        case .tunnel: return "Concentric geometric tunnel effect with audio-reactive depth and motion"
+        case .analogGlitch: return "Video interference simulation with scan lines, noise, and color distortion"
+        case .kaleidoscope: return "Bilateral mirror symmetry creating kaleidoscopic visual patterns"
         }
     }
 
@@ -355,6 +364,9 @@ enum PremiumEffect: String, CaseIterable, Identifiable {
         case .badTV: return "tv.fill"
         case .strobe: return "flashlight.on.fill"
         case .convergence: return "camera.filters"
+        case .tunnel: return "scope"
+        case .analogGlitch: return "waveform.path.ecg"
+        case .kaleidoscope: return "kaleidoscope"
         }
     }
 
@@ -364,6 +376,9 @@ enum PremiumEffect: String, CaseIterable, Identifiable {
         case .badTV: return [.white, .gray, .black, .blue]
         case .strobe: return [.red, .green, .blue, .white]
         case .convergence: return [.cyan, .pink, .yellow, .black]
+        case .tunnel: return [.purple, .pink, .blue, .black]
+        case .analogGlitch: return [.green, .yellow, .red, .gray]
+        case .kaleidoscope: return [.orange, .red, .purple, .pink]
         }
     }
 }

@@ -334,10 +334,12 @@ struct ContentView: View {
                     modeSwitcherView
                     effectsSelectorView
 
-                    // Crossfader (premium feature)
-                    EffectMixerView(metalRenderer: cameraManager.videoEffectsProcessor.metalRenderer)
-                        .environmentObject(storeManager)
-                        .padding(.horizontal)
+                    // Crossfader (premium feature) - TODO: Add EffectMixerView.swift to Xcode project
+                    // if let metalRenderer = cameraManager.effectsProcessor.getMetalRenderer() {
+                    //     EffectMixerView(metalRenderer: metalRenderer)
+                    //         .environmentObject(storeManager)
+                    //         .padding(.horizontal)
+                    // }
 
                     cameraControlsView
                 }

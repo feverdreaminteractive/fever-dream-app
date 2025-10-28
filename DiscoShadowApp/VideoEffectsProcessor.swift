@@ -36,6 +36,11 @@ class VideoEffectsProcessor: NSObject {
         }
     }
 
+    // Public access to metalRenderer for crossfader functionality
+    func getMetalRenderer() -> MetalRenderer? {
+        return metalRenderer
+    }
+
     private let context = CIContext(options: [.workingColorSpace: CGColorSpace(name: CGColorSpace.sRGB)!,
                                               .cacheIntermediates: false])
     private var time: Float = 0.0
