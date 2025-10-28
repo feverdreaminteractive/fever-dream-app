@@ -234,8 +234,3 @@ struct PresetButton: View {
         }
     }
 }
-
-#Preview {
-    EffectMixerView(metalRenderer: MetalRenderer())
-        .background(Color.black)
-}

@@ -1796,3 +1796,203 @@ kernel void alphaBlendEffects(texture2d<float, access::read> leftTexture [[textu
     outputTexture.write(blendedPixel, gid);
 }
 
+// MARK: - Tunnel Effect
+kernel void tunnelEffect(texture2d<float, access::read> inputTexture [[texture(0)]],
+                         texture2d<float, access::write> outputTexture [[texture(1)]],
+                         constant DiscoUniforms& uniforms [[buffer(0)]],
+                         uint2 gid [[thread_position_in_grid]]) {
+
+    if (gid.x >= inputTexture.get_width() || gid.y >= inputTexture.get_height()) {
+        return;
+    }
+
+    float4 inputColor = inputTexture.read(gid);
+    float2 resolution = float2(uniforms.resolutionX, uniforms.resolutionY);
+    float2 uv = float2(gid) / resolution;
+    float2 center = float2(0.5, 0.5);
+
+    // Create concentric squares tunnel
+    float time = uniforms.time * 12.0 + uniforms.audioLevel * 8.0;
+    float2 p = abs(uv - center);
+    float distance = max(p.x, p.y); // Square distance
+
+    // Audio-reactive tunnel parameters
+    float tunnelSpeed = 2.0 + uniforms.bassLevel * 15.0;
+    float tunnelDepth = 6.0 + uniforms.midLevel * 20.0;
+    float colorShift = uniforms.trebleLevel * 10.0;
+
+    // Create infinite tunnel effect
+    float layer = fract(distance * tunnelDepth - time * tunnelSpeed);
+    float edge = smoothstep(0.05, 0.15, layer) * smoothstep(0.95, 0.85, layer);
+
+    // Audio-reactive colors
+    float3 color1 = float3(0.8 + uniforms.bassLevel * 0.2, 0.2, 0.9);
+    float3 color2 = float3(0.2, 0.8 + uniforms.midLevel * 0.2, 0.9);
+    float3 color3 = float3(0.9, 0.2, 0.8 + uniforms.trebleLevel * 0.2);
+
+    // Cycle through colors based on depth and audio
+    float colorCycle = sin(time * 0.5 + distance * 8.0 + colorShift) * 0.5 + 0.5;
+    float3 tunnelColor = mix(color1, color2, colorCycle);
+    tunnelColor = mix(tunnelColor, color3, sin(colorCycle * 3.14159 + time) * 0.5 + 0.5);
+
+    // Apply tunnel effect
+    float3 finalColor = mix(inputColor.rgb, tunnelColor, edge * uniforms.intensity);
+
+    // Audio-reactive brightness modulation
+    float brightness = 1.0 + sin(time * 2.0) * uniforms.audioLevel * 0.3;
+    finalColor *= brightness;
+
+    outputTexture.write(float4(finalColor, inputColor.a), gid);
+}
+
+// MARK: - Kaleidoscope Effect
+kernel void kaleidoscopeEffect(texture2d<float, access::read> inputTexture [[texture(0)]],
+                              texture2d<float, access::write> outputTexture [[texture(1)]],
+                              constant DiscoUniforms& uniforms [[buffer(0)]],
+                              uint2 gid [[thread_position_in_grid]]) {
+
+    if (gid.x >= inputTexture.get_width() || gid.y >= inputTexture.get_height()) {
+        return;
+    }
+
+    float2 resolution = float2(uniforms.resolutionX, uniforms.resolutionY);
+    float2 uv = float2(gid) / resolution;
+    float2 center = float2(0.5, 0.5);
+
+    // Audio-reactive rotation
+    float rotation = uniforms.time * 0.5 + uniforms.audioLevel * 5.0;
+    float rotCos = cos(rotation);
+    float rotSin = sin(rotation);
+
+    // Transform coordinates to center
+    float2 p = uv - center;
+
+    // Apply rotation matrix
+    float2 rotated = float2(
+        p.x * rotCos - p.y * rotSin,
+        p.x * rotSin + p.y * rotCos
+    );
+
+    // Create bilateral mirror symmetry (kaleidoscope effect)
+    rotated = abs(rotated);
+
+    // Audio-reactive scaling
+    float scale = 1.0 + uniforms.bassLevel * 2.0;
+    rotated *= scale;
+
+    // Fold space for kaleidoscope segments
+    float angle = atan2(rotated.y, rotated.x);
+    float radius = length(rotated);
+
+    // Create 6-fold symmetry with audio reactivity
+    float segments = 6.0 + uniforms.midLevel * 6.0;
+    angle = abs(fmod(angle, 2.0 * 3.14159 / segments));
+    if (angle > 3.14159 / segments) {
+        angle = 2.0 * 3.14159 / segments - angle;
+    }
+
+    // Convert back to cartesian
+    rotated = float2(cos(angle), sin(angle)) * radius;
+
+    // Sample texture with mirrored coordinates
+    float2 sampleUV = fmod(abs(rotated) + center, 1.0);
+
+    // Ensure UV coordinates are within bounds
+    sampleUV = clamp(sampleUV, 0.0, 1.0);
+    uint2 sampleCoord = uint2(sampleUV * resolution);
+    sampleCoord = clamp(sampleCoord, uint2(0), uint2(inputTexture.get_width() - 1, inputTexture.get_height() - 1));
+
+    float4 kaleidoColor = inputTexture.read(sampleCoord);
+
+    // Audio-reactive color enhancement
+    float3 colorMod = float3(
+        1.0 + uniforms.bassLevel * 0.5,
+        1.0 + uniforms.midLevel * 0.5,
+        1.0 + uniforms.trebleLevel * 0.5
+    );
+    kaleidoColor.rgb *= colorMod;
+
+    // Intensity modulation
+    float intensity = uniforms.intensity * (0.8 + uniforms.audioLevel * 0.4);
+    float4 inputColor = inputTexture.read(gid);
+    float4 finalColor = mix(inputColor, kaleidoColor, intensity);
+
+    outputTexture.write(finalColor, gid);
+}
+
+// MARK: - Analog Glitch Effect
+kernel void analogGlitchEffect(texture2d<float, access::read> inputTexture [[texture(0)]],
+                              texture2d<float, access::write> outputTexture [[texture(1)]],
+                              constant DiscoUniforms& uniforms [[buffer(0)]],
+                              uint2 gid [[thread_position_in_grid]]) {
+
+    if (gid.x >= inputTexture.get_width() || gid.y >= inputTexture.get_height()) {
+        return;
+    }
+
+    float4 inputColor = inputTexture.read(gid);
+    float2 resolution = float2(uniforms.resolutionX, uniforms.resolutionY);
+    float2 uv = float2(gid) / resolution;
+
+    // Audio-reactive glitch parameters
+    float time = uniforms.time * 8.0;
+    float glitchIntensity = uniforms.intensity * (0.5 + uniforms.audioLevel * 1.5);
+    float scanlineSpeed = 10.0 + uniforms.bassLevel * 30.0;
+    float noiseAmount = 0.1 + uniforms.midLevel * 0.4;
+    float colorBleed = uniforms.trebleLevel * 0.3;
+
+    // VHS-style horizontal distortion
+    float scanline = sin(uv.y * 800.0 + time * scanlineSpeed) * 0.5 + 0.5;
+    float distortion = sin(uv.y * 20.0 + time * 2.0) * glitchIntensity * 0.02;
+
+    // Audio-reactive horizontal shift
+    float shift = sin(time * 0.5 + uniforms.audioLevel * 10.0) * glitchIntensity * 0.05;
+    float2 shiftedUV = uv + float2(distortion + shift, 0.0);
+
+    // Clamp UV coordinates
+    shiftedUV = clamp(shiftedUV, 0.0, 1.0);
+    uint2 shiftedCoord = uint2(shiftedUV * resolution);
+    shiftedCoord = clamp(shiftedCoord, uint2(0), uint2(inputTexture.get_width() - 1, inputTexture.get_height() - 1));
+
+    float4 shiftedColor = inputTexture.read(shiftedCoord);
+
+    // RGB channel separation (chromatic aberration)
+    float2 redUV = uv + float2(colorBleed, 0.0);
+    float2 blueUV = uv - float2(colorBleed, 0.0);
+
+    redUV = clamp(redUV, 0.0, 1.0);
+    blueUV = clamp(blueUV, 0.0, 1.0);
+
+    uint2 redCoord = clamp(uint2(redUV * resolution), uint2(0), uint2(inputTexture.get_width() - 1, inputTexture.get_height() - 1));
+    uint2 blueCoord = clamp(uint2(blueUV * resolution), uint2(0), uint2(inputTexture.get_width() - 1, inputTexture.get_height() - 1));
+
+    float redChannel = inputTexture.read(redCoord).r;
+    float greenChannel = shiftedColor.g;
+    float blueChannel = inputTexture.read(blueCoord).b;
+
+    // Analog noise
+    float noise = fract(sin(dot(uv + time * 0.1, float2(12.9898, 78.233))) * 43758.5453);
+    noise = (noise - 0.5) * noiseAmount;
+
+    // Video interference lines
+    float interference = step(0.98, sin(uv.y * 200.0 + time * 50.0));
+    interference *= glitchIntensity;
+
+    // Combine effects
+    float3 glitchColor = float3(redChannel, greenChannel, blueChannel);
+    glitchColor += noise;
+    glitchColor = mix(glitchColor, float3(1.0), interference * 0.3);
+
+    // Scanline effect
+    glitchColor *= (0.8 + scanline * 0.4);
+
+    // Audio-reactive brightness modulation
+    float brightness = 1.0 + sin(time * 1.5) * uniforms.audioLevel * 0.2;
+    glitchColor *= brightness;
+
+    // Mix with original based on intensity
+    float3 finalColor = mix(inputColor.rgb, glitchColor, glitchIntensity);
+
+    outputTexture.write(float4(finalColor, inputColor.a), gid);
+}
+
