@@ -334,10 +334,15 @@ struct ContentView: View {
                     modeSwitcherView
                     effectsSelectorView
 
-                    // Crossfader (premium feature)
-                    if let metalRenderer = cameraManager.effectsProcessor.getMetalRenderer() {
+                    // Crossfader (premium feature - only for subscribers)
+                    if storeManager.hasSubscription,
+                       let metalRenderer = cameraManager.effectsProcessor.getMetalRenderer() {
                         EffectMixerView(metalRenderer: metalRenderer)
                             .environmentObject(storeManager)
+                            .padding(.horizontal)
+                    } else {
+                        // Premium upsell for crossfader
+                        CrossfaderUpsellView(storeManager: storeManager, showPremiumMenu: $showPremiumMenu)
                             .padding(.horizontal)
                     }
 
@@ -1164,6 +1169,152 @@ struct PresetButton: View {
                         )
                 )
         }
+    }
+}
+
+struct CrossfaderUpsellView: View {
+    let storeManager: StoreManager
+    @Binding var showPremiumMenu: Bool
+
+    var body: some View {
+        VStack(spacing: 15) {
+            // Header
+            HStack {
+                Image(systemName: "crown.fill")
+                    .font(.system(size: 20))
+                    .foregroundColor(.yellow)
+
+                Text("CROSSFADER")
+                    .font(.system(size: 16, weight: .bold, design: .rounded))
+                    .foregroundColor(.white)
+
+                Image(systemName: "crown.fill")
+                    .font(.system(size: 20))
+                    .foregroundColor(.yellow)
+            }
+
+            Text("Mix between effects in real-time")
+                .font(.system(size: 14, weight: .medium))
+                .foregroundColor(.white.opacity(0.8))
+                .multilineTextAlignment(.center)
+
+            // Mock crossfader (disabled)
+            VStack(spacing: 12) {
+                HStack(spacing: 20) {
+                    // Left Effect
+                    VStack(spacing: 8) {
+                        Text("FEVER DREAM")
+                            .font(.system(size: 10, weight: .bold, design: .rounded))
+                            .foregroundColor(.cyan.opacity(0.6))
+
+                        RoundedRectangle(cornerRadius: 6)
+                            .fill(Color.black.opacity(0.6))
+                            .frame(width: 60, height: 30)
+                            .overlay(
+                                Text("FVR")
+                                    .font(.system(size: 12, weight: .bold, design: .rounded))
+                                    .foregroundColor(.white.opacity(0.5))
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .stroke(Color.white.opacity(0.3), lineWidth: 1)
+                            )
+                    }
+
+                    Spacer()
+
+                    // Right Effect
+                    VStack(spacing: 8) {
+                        Text("HYPNOTIST")
+                            .font(.system(size: 10, weight: .bold, design: .rounded))
+                            .foregroundColor(.purple.opacity(0.6))
+
+                        RoundedRectangle(cornerRadius: 6)
+                            .fill(Color.black.opacity(0.6))
+                            .frame(width: 60, height: 30)
+                            .overlay(
+                                Text("HYP")
+                                    .font(.system(size: 12, weight: .bold, design: .rounded))
+                                    .foregroundColor(.white.opacity(0.5))
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .stroke(Color.white.opacity(0.3), lineWidth: 1)
+                            )
+                    }
+                }
+
+                // Mock crossfader slider (disabled)
+                ZStack {
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(Color.black.opacity(0.6))
+                        .frame(height: 12)
+                        .overlay(
+                            LinearGradient(
+                                colors: [.cyan.opacity(0.3), .yellow.opacity(0.2), .purple.opacity(0.3)],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                            .clipShape(RoundedRectangle(cornerRadius: 6))
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 6)
+                                .stroke(Color.white.opacity(0.2), lineWidth: 1)
+                        )
+
+                    // Centered handle
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(Color.white.opacity(0.6))
+                        .frame(width: 20, height: 16)
+                        .overlay(
+                            VStack(spacing: 1) {
+                                Rectangle().fill(Color.black.opacity(0.3)).frame(width: 10, height: 1)
+                                Rectangle().fill(Color.black.opacity(0.3)).frame(width: 10, height: 1)
+                            }
+                        )
+                }
+            }
+
+            // Upgrade button
+            Button(action: {
+                showPremiumMenu = true
+            }) {
+                HStack(spacing: 8) {
+                    Image(systemName: "play.fill")
+                        .font(.system(size: 14, weight: .bold))
+                    Text("UNLOCK CROSSFADER")
+                        .font(.system(size: 14, weight: .bold, design: .rounded))
+                }
+                .foregroundColor(.black)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+                .background(
+                    LinearGradient(
+                        colors: [.yellow, .orange],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
+                .cornerRadius(20)
+                .shadow(color: .yellow.opacity(0.4), radius: 6, x: 0, y: 3)
+            }
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.black.opacity(0.7))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(
+                            LinearGradient(
+                                colors: [.yellow.opacity(0.4), .orange.opacity(0.4)],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            ),
+                            lineWidth: 1
+                        )
+                )
+        )
     }
 }
 
