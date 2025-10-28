@@ -73,6 +73,17 @@ class StoreManager: NSObject, ObservableObject {
         }
     }
 
+    // Frictionless subscription purchase - automatically starts trial with Face ID
+    @MainActor
+    func purchaseSubscriptionFrictionless() async throws {
+        guard let subscriptionProduct = subscriptionProduct() else {
+            throw StoreError.failedVerification
+        }
+
+        // Trigger immediate purchase with Face ID/Touch ID authentication
+        try await purchase(subscriptionProduct)
+    }
+
     func restorePurchases() {
         Task {
             try? await AppStore.sync()

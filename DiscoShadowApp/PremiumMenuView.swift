@@ -7,6 +7,7 @@ struct PremiumMenuView: View {
     @State private var showingSubscriptionSheet = false
     @State private var showingIndividualEffectSheet = false
     @State private var selectedEffect: PremiumEffect?
+    @State private var isPurchasing = false
 
     var body: some View {
         NavigationView {
@@ -72,12 +73,27 @@ struct PremiumMenuView: View {
                             }
 
                             Button(action: {
-                                showingSubscriptionSheet = true
+                                Task {
+                                    isPurchasing = true
+                                    do {
+                                        try await storeManager.purchaseSubscriptionFrictionless()
+                                        // Automatically dismiss on successful purchase
+                                        dismiss()
+                                    } catch {
+                                        print("Failed to start subscription: \(error)")
+                                        isPurchasing = false
+                                    }
+                                }
                             }) {
                                 HStack(spacing: 8) {
-                                    Image(systemName: "play.fill")
-                                        .font(.system(size: 16, weight: .bold))
-                                    Text("START FREE TRIAL")
+                                    if isPurchasing {
+                                        ProgressView()
+                                            .progressViewStyle(CircularProgressViewStyle(tint: .black))
+                                    } else {
+                                        Image(systemName: "faceid")
+                                            .font(.system(size: 16, weight: .bold))
+                                    }
+                                    Text(isPurchasing ? "AUTHENTICATING..." : "START FREE TRIAL")
                                         .font(.system(size: 16, weight: .bold, design: .rounded))
                                 }
                                 .foregroundColor(.black)
@@ -93,8 +109,10 @@ struct PremiumMenuView: View {
                                 .cornerRadius(25)
                                 .shadow(color: .green.opacity(0.4), radius: 8, x: 0, y: 4)
                             }
+                            .disabled(isPurchasing)
+                            .opacity(isPurchasing ? 0.7 : 1.0)
                             .scaleEffect(1.0)
-                            .animation(.spring(response: 0.3, dampingFraction: 0.6), value: showingSubscriptionSheet)
+                            .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isPurchasing)
                         }
                         .padding()
                         .background(
@@ -140,8 +158,17 @@ struct PremiumMenuView: View {
                                         isOwned: storeManager.ownedEffects.contains(effect.id),
                                         onTap: {
                                             if !storeManager.ownedEffects.contains(effect.id) {
-                                                // All effects require subscription now
-                                                showingSubscriptionSheet = true
+                                                // All effects require subscription - use frictionless purchase
+                                                Task {
+                                                    isPurchasing = true
+                                                    do {
+                                                        try await storeManager.purchaseSubscriptionFrictionless()
+                                                        dismiss()
+                                                    } catch {
+                                                        print("Failed to start subscription: \(error)")
+                                                        isPurchasing = false
+                                                    }
+                                                }
                                             }
                                         }
                                     )
