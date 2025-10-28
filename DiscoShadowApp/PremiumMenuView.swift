@@ -48,7 +48,7 @@ struct PremiumMenuView: View {
                                 }
 
                                 VStack(spacing: 8) {
-                                    Text("All 4 premium effects included • 1 month free trial")
+                                    Text("All 7 premium effects included • 1 month free trial")
                                         .font(.system(size: 14))
                                         .foregroundColor(.white.opacity(0.8))
                                         .multilineTextAlignment(.center)
@@ -323,6 +323,9 @@ enum PremiumEffect: String, CaseIterable, Identifiable {
     case badTV = "bad_tv_effect"
     case strobe = "strobe_effect"
     case convergence = "convergence_effect"
+    case tunnel = "tunnel_effect"
+    case analogGlitch = "analog_glitch_effect"
+    case kaleidoscope = "kaleidoscope_effect"
 
     var id: String { rawValue }
 
@@ -332,6 +335,9 @@ enum PremiumEffect: String, CaseIterable, Identifiable {
         case .badTV: return "BAD TV"
         case .strobe: return "STROBE"
         case .convergence: return "CONVERGENCE"
+        case .tunnel: return "TUNNEL"
+        case .analogGlitch: return "ANALOG GLITCH"
+        case .kaleidoscope: return "KALEIDOSCOPE"
         }
     }
 
@@ -341,6 +347,9 @@ enum PremiumEffect: String, CaseIterable, Identifiable {
         case .badTV: return "Infinite feedback loops with vintage TV static, creating hypnotic recursive visuals"
         case .strobe: return "Audio-reactive RGB color channel strobing with independent frequency control"
         case .convergence: return "RGB channel separation with random displacement creating chromatic aberration glitch effects"
+        case .tunnel: return "Mesmerizing infinite tunnel with concentric squares and optical illusion depth effects"
+        case .analogGlitch: return "Classic analog video interference with distortion, sync issues, and scanlines"
+        case .kaleidoscope: return "Multi-mirror symmetrical patterns creating infinite geometric reflections"
         }
     }
 
@@ -355,6 +364,9 @@ enum PremiumEffect: String, CaseIterable, Identifiable {
         case .badTV: return "tv.fill"
         case .strobe: return "flashlight.on.fill"
         case .convergence: return "camera.filters"
+        case .tunnel: return "rectangle.3.group"
+        case .analogGlitch: return "tv.and.mediabox"
+        case .kaleidoscope: return "sparkles"
         }
     }
 
@@ -364,6 +376,9 @@ enum PremiumEffect: String, CaseIterable, Identifiable {
         case .badTV: return [.white, .gray, .black, .blue]
         case .strobe: return [.red, .green, .blue, .white]
         case .convergence: return [.cyan, .pink, .yellow, .black]
+        case .tunnel: return [.black, .white, .gray, .purple]
+        case .analogGlitch: return [.red, .green, .blue, .black]
+        case .kaleidoscope: return [.purple, .pink, .orange, .yellow]
         }
     }
 }

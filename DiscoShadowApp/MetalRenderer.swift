@@ -15,6 +15,9 @@ class MetalRenderer: NSObject {
     private var badTVPipelineState: MTLComputePipelineState?
     private var strobePipelineState: MTLComputePipelineState?
     private var convergencePipelineState: MTLComputePipelineState?
+    private var tunnelPipelineState: MTLComputePipelineState?
+    private var analogGlitchPipelineState: MTLComputePipelineState?
+    private var kaleidoscopePipelineState: MTLComputePipelineState?
 
     private var textureCache: CVMetalTextureCache?
     private var outputTexture: MTLTexture?
@@ -136,6 +139,45 @@ class MetalRenderer: NSObject {
             print("⚠️ Could not create Convergence compute pipeline state: \\(error)")
         }
 
+        // Set up Tunnel effect (Premium)
+        guard let tunnelFunction = library.makeFunction(name: "tunnelEffect") else {
+            print("⚠️ Tunnel effect not available")
+            return
+        }
+
+        do {
+            tunnelPipelineState = try device.makeComputePipelineState(function: tunnelFunction)
+            print("✅ Tunnel pipeline created successfully")
+        } catch {
+            print("⚠️ Could not create Tunnel compute pipeline state: \\(error)")
+        }
+
+        // Set up Analog Glitch effect (Premium)
+        guard let analogGlitchFunction = library.makeFunction(name: "analogGlitchEffect") else {
+            print("⚠️ Analog Glitch effect not available")
+            return
+        }
+
+        do {
+            analogGlitchPipelineState = try device.makeComputePipelineState(function: analogGlitchFunction)
+            print("✅ Analog Glitch pipeline created successfully")
+        } catch {
+            print("⚠️ Could not create Analog Glitch compute pipeline state: \\(error)")
+        }
+
+        // Set up Kaleidoscope effect (Premium)
+        guard let kaleidoscopeFunction = library.makeFunction(name: "kaleidoscopeEffect") else {
+            print("⚠️ Kaleidoscope effect not available")
+            return
+        }
+
+        do {
+            kaleidoscopePipelineState = try device.makeComputePipelineState(function: kaleidoscopeFunction)
+            print("✅ Kaleidoscope pipeline created successfully")
+        } catch {
+            print("⚠️ Could not create Kaleidoscope compute pipeline state: \\(error)")
+        }
+
         // Set up render pipeline for display
         guard let vertexFunction = library.makeFunction(name: "vertexShader"),
               let fragmentFunction = library.makeFunction(name: "fragmentShader") else {
@@ -185,6 +227,15 @@ class MetalRenderer: NSObject {
             case .convergence:
                 selectedPipelineState = convergencePipelineState
                 print("🎨 MetalRenderer: Selected Convergence pipeline")
+            case .tunnel:
+                selectedPipelineState = tunnelPipelineState
+                print("🎨 MetalRenderer: Selected Tunnel pipeline")
+            case .analogGlitch:
+                selectedPipelineState = analogGlitchPipelineState
+                print("🎨 MetalRenderer: Selected Analog Glitch pipeline")
+            case .kaleidoscope:
+                selectedPipelineState = kaleidoscopePipelineState
+                print("🎨 MetalRenderer: Selected Kaleidoscope pipeline")
             }
         } else {
             // Use default Disco Shadow effect

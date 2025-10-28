@@ -1770,3 +1770,232 @@ kernel void convergenceEffect(texture2d<float, access::read> inputTexture [[ tex
 
     outputTexture.write(result, gid);
 }
+
+// MARK: - Tunnel Effect
+kernel void tunnelEffect(texture2d<float, access::read> inputTexture [[texture(0)]],
+                         texture2d<float, access::write> outputTexture [[texture(1)]],
+                         constant DiscoUniforms& uniforms [[buffer(0)]],
+                         uint2 gid [[thread_position_in_grid]]) {
+
+    if (gid.x >= outputTexture.get_width() || gid.y >= outputTexture.get_height()) {
+        return;
+    }
+
+    float2 texCoord = float2(gid) / float2(outputTexture.get_width(), outputTexture.get_height());
+    float4 originalPixel = inputTexture.read(gid);
+
+    // Center coordinates (-1 to 1)
+    float2 center = texCoord * 2.0 - 1.0;
+    center.x *= float(outputTexture.get_width()) / float(outputTexture.get_height()); // Aspect ratio correction
+
+    // Fast moving tunnel animation - much faster than before
+    float time = uniforms.time * 12.0 + uniforms.audioLevel * 8.0; // Even faster + audio reactive speed
+
+    // Create concentric squares pattern using Chebyshev distance (L∞ norm)
+    float2 absCoord = abs(center);
+    float squareDistance = max(absCoord.x, absCoord.y); // Distance to square edge
+
+    // Fast moving depth with higher frequency
+    float tunnelDepth = time + squareDistance * 15.0; // Higher frequency for more squares
+
+    // Create repeating pattern with sharp transitions
+    float squareIndex = floor(tunnelDepth);
+    float squareFraction = tunnelDepth - squareIndex;
+
+    // Alternate black and white squares
+    float pattern = fmod(squareIndex, 2.0);
+
+    // Sharp edge transition for crisp squares
+    float edgeSharpness = 0.02; // Very sharp edges
+    float edge = smoothstep(0.5 - edgeSharpness, 0.5 + edgeSharpness, squareFraction);
+
+    // Create the tunnel effect
+    float3 finalColor;
+    if (pattern < 0.5) {
+        // Black squares - fade to black
+        finalColor = float3(0.0);
+    } else {
+        // "White" squares - multiply original image for intensified effect
+        float centerDistance = length(center);
+        float intensity = 2.0 / (1.0 + centerDistance * 1.0); // Brightness multiplier
+        finalColor = originalPixel.rgb * intensity;
+    }
+
+    // Add perspective fade towards edges for depth illusion
+    float centerDistance = length(center);
+    float perspective = 1.0 / (1.0 + centerDistance * 0.5);
+
+    // Apply perspective fade only to black areas
+    if (pattern < 0.5) {
+        finalColor *= perspective;
+    }
+
+    // Apply intensity
+    finalColor *= uniforms.intensity;
+
+    outputTexture.write(float4(finalColor, 1.0), gid);
+}
+
+// MARK: - Kaleidoscope Effect
+kernel void kaleidoscopeEffect(texture2d<float, access::read> inputTexture [[texture(0)]],
+                               texture2d<float, access::write> outputTexture [[texture(1)]],
+                               constant DiscoUniforms& uniforms [[buffer(0)]],
+                               uint2 gid [[thread_position_in_grid]]) {
+
+    if (gid.x >= outputTexture.get_width() || gid.y >= outputTexture.get_height()) {
+        return;
+    }
+
+    float2 texCoord = float2(gid) / float2(outputTexture.get_width(), outputTexture.get_height());
+    float2 renderSize = float2(outputTexture.get_width(), outputTexture.get_height());
+
+    // Kaleidoscope parameters - work in normalized coordinates
+    float2 center = float2(0.5, 0.5); // True center of screen
+    float sides = 2.0; // Fixed 2 sides for simple bilateral symmetry
+    float angle = uniforms.time * 0.1; // Slow rotation
+
+    // Work in normalized coordinates for consistent centering
+    float2 centeredUV = texCoord - center;
+    // Apply aspect ratio correction to maintain circular symmetry
+    centeredUV.x *= float(outputTexture.get_width()) / float(outputTexture.get_height());
+
+    // Simple bilateral mirror - just flip one half horizontally
+    float2 sampleUV = texCoord;
+
+    // Mirror the left half to the right half (or vice versa)
+    if (texCoord.x > 0.5) {
+        sampleUV.x = 1.0 - texCoord.x; // Mirror right side to left side
+    }
+
+    // Boundary handling - wrap coordinates
+    sampleUV = fract(abs(sampleUV));
+
+    // Sample the input texture
+    uint2 sampleCoord = uint2(sampleUV * renderSize);
+    sampleCoord.x = min(sampleCoord.x, outputTexture.get_width() - 1);
+    sampleCoord.y = min(sampleCoord.y, outputTexture.get_height() - 1);
+
+    float4 kaleidoscopeColor = inputTexture.read(sampleCoord);
+
+    // Add some audio-reactive color enhancement
+    kaleidoscopeColor.r += sin(uniforms.time * 2.0 + uniforms.bassLevel * 10.0) * 0.1;
+    kaleidoscopeColor.g += sin(uniforms.time * 2.3 + uniforms.midLevel * 10.0) * 0.1;
+    kaleidoscopeColor.b += sin(uniforms.time * 2.7 + uniforms.trebleLevel * 10.0) * 0.1;
+
+    // Apply intensity
+    kaleidoscopeColor.rgb *= uniforms.intensity;
+
+    outputTexture.write(kaleidoscopeColor, gid);
+}
+
+// MARK: - Analog Glitch Effect
+kernel void analogGlitchEffect(texture2d<float, access::read> inputTexture [[texture(0)]],
+                               texture2d<float, access::write> outputTexture [[texture(1)]],
+                               constant DiscoUniforms& uniforms [[buffer(0)]],
+                               uint2 gid [[thread_position_in_grid]]) {
+    if (gid.x >= outputTexture.get_width() || gid.y >= outputTexture.get_height()) {
+        return;
+    }
+
+    float2 resolution = float2(uniforms.resolutionX, uniforms.resolutionY);
+    float2 texCoord = float2(gid) / resolution;
+
+    // Audio reactive parameters
+    float audioLevel = uniforms.audioLevel;
+    float bassLevel = uniforms.bassLevel;
+    float midLevel = uniforms.midLevel;
+    float trebleLevel = uniforms.trebleLevel;
+    float time = uniforms.time;
+
+    // Audio-reactive glitch parameters
+    float glitchIntensity = 0.3 + audioLevel * 0.7;
+    float noiseAmount = 0.2 + bassLevel * 0.5;
+    float colorShift = 0.1 + midLevel * 0.4;
+    float scanlineIntensity = 0.3 + trebleLevel * 0.4;
+
+    // Add horizontal distortion bands (audio-reactive)
+    float distortionFreq = 15.0 + bassLevel * 20.0;
+    float distortionPhase = time * 2.0 + audioLevel * 10.0;
+    float distortionAmount = 0.02 + audioLevel * 0.08;
+
+    float distortion = sin(texCoord.y * distortionFreq + distortionPhase) * distortionAmount;
+    texCoord.x += distortion;
+
+    // Add vertical sync issues (triggered by bass)
+    float syncGlitchChance = bassLevel * 0.3;
+    float syncNoise = fract(sin(floor(time * 10.0)) * 43758.5453123);
+    if (syncNoise < syncGlitchChance) {
+        float syncOffset = (fract(sin(floor(time * 20.0)) * 43758.5453123) - 0.5) * 0.1;
+        texCoord.y += syncOffset;
+    }
+
+    // RGB channel separation (chromatic aberration)
+    float2 redOffset = float2(colorShift * sin(time * 3.0 + bassLevel * 5.0), 0.0);
+    float2 greenOffset = float2(0.0, colorShift * sin(time * 2.0 + midLevel * 4.0) * 0.5);
+    float2 blueOffset = float2(-colorShift * sin(time * 4.0 + trebleLevel * 6.0), colorShift * cos(time * 1.5) * 0.3);
+
+    // Sample RGB channels with offsets
+    float4 originalColor = inputTexture.read(gid);
+
+    // Clamp coordinates to texture bounds
+    uint2 redCoord = clamp(uint2((texCoord + redOffset) * resolution), uint2(0), uint2(inputTexture.get_width() - 1, inputTexture.get_height() - 1));
+    uint2 greenCoord = clamp(uint2((texCoord + greenOffset) * resolution), uint2(0), uint2(inputTexture.get_width() - 1, inputTexture.get_height() - 1));
+    uint2 blueCoord = clamp(uint2((texCoord + blueOffset) * resolution), uint2(0), uint2(inputTexture.get_width() - 1, inputTexture.get_height() - 1));
+
+    float redChannel = inputTexture.read(redCoord).r;
+    float greenChannel = inputTexture.read(greenCoord).g;
+    float blueChannel = inputTexture.read(blueCoord).b;
+
+    float3 glitchedColor = float3(redChannel, greenChannel, blueChannel);
+
+    // Add scanlines
+    float scanline = sin(texCoord.y * resolution.y * 1.5) * 0.5 + 0.5;
+    scanline = pow(scanline, 0.8);
+    glitchedColor *= (1.0 - scanlineIntensity * (1.0 - scanline));
+
+    // Add analog noise
+    float noise = fract(sin(dot((texCoord + fract(time)).xy, float2(12.9898, 78.233))) * 43758.5453123);
+    noise = (noise - 0.5) * noiseAmount;
+    glitchedColor += noise;
+
+    // Add interference patterns
+    float interferenceFreq = 50.0 + midLevel * 100.0;
+    float interference = sin(texCoord.y * interferenceFreq + time * 10.0) * 0.1;
+    interference *= sin(texCoord.x * 30.0 + time * 5.0) * 0.5;
+    glitchedColor += interference * audioLevel;
+
+    // Random pixel corruption (triggered by treble)
+    float pixelCorruptionChance = trebleLevel * 0.2;
+    float pixelNoise = fract(sin(dot((texCoord + floor(time * 30.0)).xy, float2(12.9898, 78.233))) * 43758.5453123);
+    if (pixelNoise < pixelCorruptionChance) {
+        float r = fract(sin((pixelNoise + 1.0)) * 43758.5453123);
+        float g = fract(sin((pixelNoise + 2.0)) * 43758.5453123);
+        float b = fract(sin((pixelNoise + 3.0)) * 43758.5453123);
+        glitchedColor = mix(glitchedColor, float3(r, g, b), 0.8);
+    }
+
+    // Add dropout lines (horizontal black/white lines)
+    float dropoutChance = bassLevel * 0.15;
+    float linePosition = floor(texCoord.y * 200.0) / 200.0;
+    float dropoutNoise = fract(sin(linePosition + floor(time * 5.0)) * 43758.5453123);
+    if (dropoutNoise < dropoutChance) {
+        float dropoutIntensity = fract(sin(dropoutNoise + 10.0) * 43758.5453123);
+        glitchedColor = mix(glitchedColor, float3(dropoutIntensity), 0.7);
+    }
+
+    // Color bleeding/ghosting effect
+    float ghostingOffset = 0.003 + audioLevel * 0.01;
+    uint2 ghostCoord = clamp(uint2((texCoord + float2(ghostingOffset, 0.0)) * resolution), uint2(0), uint2(inputTexture.get_width() - 1, inputTexture.get_height() - 1));
+    float3 ghostColor = inputTexture.read(ghostCoord).rgb;
+    glitchedColor = mix(glitchedColor, ghostColor, 0.3 * audioLevel);
+
+    // Contrast and saturation adjustments
+    glitchedColor = mix(float3(dot(glitchedColor, float3(0.299, 0.587, 0.114))), glitchedColor, 1.2);
+    glitchedColor = pow(glitchedColor, float3(0.9));
+
+    // Clamp final color
+    glitchedColor = clamp(glitchedColor, 0.0, 1.0);
+
+    float4 finalColor = float4(glitchedColor, originalColor.a);
+    outputTexture.write(finalColor, gid);
+}
