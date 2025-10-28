@@ -37,6 +37,9 @@ class MetalRenderer: NSObject {
     var activePremiumEffect: PremiumEffect?
     var storeManager: StoreManager?
 
+    // Crossfader properties
+    var crossfaderPosition: Float = 0.0
+
     override init() {
         guard let device = MTLCreateSystemDefaultDevice() else {
             fatalError("Metal is not supported on this device")

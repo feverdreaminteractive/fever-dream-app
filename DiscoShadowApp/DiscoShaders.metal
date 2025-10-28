@@ -1,6 +1,27 @@
 #include <metal_stdlib>
 using namespace metal;
 
+// Alpha blending kernel for crossfader
+kernel void alphaBlendEffects(texture2d<float, access::read> leftTexture [[texture(0)]],
+                             texture2d<float, access::read> rightTexture [[texture(1)]],
+                             texture2d<float, access::write> outputTexture [[texture(2)]],
+                             constant float& leftAlpha [[buffer(0)]],
+                             constant float& rightAlpha [[buffer(1)]],
+                             uint2 gid [[thread_position_in_grid]]) {
+
+    if (gid.x >= outputTexture.get_width() || gid.y >= outputTexture.get_height()) {
+        return;
+    }
+
+    float4 leftPixel = leftTexture.read(gid);
+    float4 rightPixel = rightTexture.read(gid);
+
+    float4 blendedPixel = leftPixel * leftAlpha + rightPixel * rightAlpha;
+    blendedPixel.a = 1.0;
+
+    outputTexture.write(blendedPixel, gid);
+}
+
 struct DiscoUniforms {
     float time;
     float intensity;

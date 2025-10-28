@@ -333,6 +333,12 @@ struct ContentView: View {
                     cameraPreviewWithGestures(reader: reader)
                     modeSwitcherView
                     effectsSelectorView
+
+                    // Crossfader (premium feature)
+                    EffectMixerView(metalRenderer: cameraManager.videoEffectsProcessor.metalRenderer)
+                        .environmentObject(storeManager)
+                        .padding(.horizontal)
+
                     cameraControlsView
                 }
             }
