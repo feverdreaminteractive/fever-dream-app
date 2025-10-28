@@ -2,9 +2,10 @@ import Metal
 import MetalKit
 import AVFoundation
 import CoreVideo
+import Combine
 
 
-class MetalRenderer: NSObject {
+class MetalRenderer: NSObject, ObservableObject {
     private let device: MTLDevice
     private let commandQueue: MTLCommandQueue
     private let library: MTLLibrary
@@ -48,10 +49,10 @@ class MetalRenderer: NSObject {
     var storeManager: StoreManager?
 
     // Crossfader properties
-    var isCrossfaderActive: Bool = false
-    var leftEffect: PremiumEffect?
-    var rightEffect: PremiumEffect?
-    var crossfaderPosition: Float = 0.0
+    @Published var isCrossfaderActive: Bool = false
+    @Published var leftEffect: PremiumEffect?
+    @Published var rightEffect: PremiumEffect?
+    @Published var crossfaderPosition: Float = 0.0
 
     override init() {
         guard let device = MTLCreateSystemDefaultDevice() else {

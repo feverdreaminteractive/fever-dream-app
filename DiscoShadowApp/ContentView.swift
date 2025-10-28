@@ -336,7 +336,7 @@ struct ContentView: View {
 
                     // Crossfader (premium feature)
                     if let metalRenderer = cameraManager.effectsProcessor.getMetalRenderer() {
-                        CrossfaderView(metalRenderer: metalRenderer)
+                        EffectMixerView(metalRenderer: metalRenderer)
                             .environmentObject(storeManager)
                             .padding(.horizontal)
                     }
@@ -930,150 +930,152 @@ struct EffectsSelectorView: View {
     }
 }
 
-// MARK: - Crossfader Components
+// MARK: - Effect Mixer Components
 
-struct CrossfaderView: View {
-    let metalRenderer: MetalRenderer
-    @EnvironmentObject var storeManager: StoreManager
-    @State private var crossfaderPosition: Double = 0.0
+struct EffectMixerView: View {
+    @ObservedObject var metalRenderer: MetalRenderer
+    @State private var showingMixer = true  // Always show the mixer
 
     // Two effects to mix between
     private let leftEffect: PremiumEffect? = nil  // Fever Dream (default disco)
     private let rightEffect: PremiumEffect? = .crtDitherGlitch  // Hypnotist
 
+    // Crossfader position (-1.0 = full left, 0.0 = center, 1.0 = full right)
+    @State private var crossfaderPosition: Double = 0.0
+
     var body: some View {
-        VStack(spacing: 20) {
-            // Effect Labels
-            HStack(spacing: 20) {
-                // Left Effect
-                VStack(spacing: 8) {
-                    Text("FEVER DREAM")
-                        .font(.system(size: 12, weight: .bold, design: .rounded))
-                        .foregroundColor(crossfaderPosition < 0 ? .cyan : .cyan.opacity(0.5))
+        VStack {
+            // Two-Effect Crossfader Mixer Panel (always visible)
+                VStack(spacing: 20) {
+                    // Effect Labels
+                    HStack(spacing: 20) {
+                        // Left Effect
+                        VStack(spacing: 8) {
+                            Text("FEVER DREAM")
+                                .font(.system(size: 12, weight: .bold, design: .rounded))
+                                .foregroundColor(crossfaderPosition < 0 ? .cyan : .cyan.opacity(0.5))
 
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(crossfaderPosition < 0 ? Color.cyan.opacity(0.8) : Color.black.opacity(0.6))
-                        .frame(width: 80, height: 40)
-                        .overlay(
-                            Text("FVR")
-                                .font(.system(size: 14, weight: .bold, design: .rounded))
-                                .foregroundColor(crossfaderPosition < 0 ? .black : .white.opacity(0.7))
-                        )
-                        .overlay(
                             RoundedRectangle(cornerRadius: 8)
-                                .stroke(crossfaderPosition < 0 ? .cyan : Color.white.opacity(0.3), lineWidth: 2)
-                        )
-                }
+                                .fill(crossfaderPosition < 0 ? Color.cyan.opacity(0.8) : Color.black.opacity(0.6))
+                                .frame(width: 80, height: 40)
+                                .overlay(
+                                    Text("FVR")
+                                        .font(.system(size: 14, weight: .bold, design: .rounded))
+                                        .foregroundColor(crossfaderPosition < 0 ? .black : .white.opacity(0.7))
+                                )
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .stroke(crossfaderPosition < 0 ? .cyan : Color.white.opacity(0.3), lineWidth: 2)
+                                )
+                        }
 
-                Spacer()
+                        Spacer()
 
-                // Right Effect
-                VStack(spacing: 8) {
-                    Text("HYPNOTIST")
-                        .font(.system(size: 12, weight: .bold, design: .rounded))
-                        .foregroundColor(crossfaderPosition > 0 ? .purple : .purple.opacity(0.5))
+                        // Right Effect
+                        VStack(spacing: 8) {
+                            Text("HYPNOTIST")
+                                .font(.system(size: 12, weight: .bold, design: .rounded))
+                                .foregroundColor(crossfaderPosition > 0 ? .purple : .purple.opacity(0.5))
 
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(crossfaderPosition > 0 ? Color.purple.opacity(0.8) : Color.black.opacity(0.6))
-                        .frame(width: 80, height: 40)
-                        .overlay(
-                            Text("HYP")
-                                .font(.system(size: 14, weight: .bold, design: .rounded))
-                                .foregroundColor(crossfaderPosition > 0 ? .black : .white.opacity(0.7))
-                        )
-                        .overlay(
                             RoundedRectangle(cornerRadius: 8)
-                                .stroke(crossfaderPosition > 0 ? .purple : Color.white.opacity(0.3), lineWidth: 2)
-                        )
-                }
-            }
+                                .fill(crossfaderPosition > 0 ? Color.purple.opacity(0.8) : Color.black.opacity(0.6))
+                                .frame(width: 80, height: 40)
+                                .overlay(
+                                    Text("HYP")
+                                        .font(.system(size: 14, weight: .bold, design: .rounded))
+                                        .foregroundColor(crossfaderPosition > 0 ? .black : .white.opacity(0.7))
+                                )
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .stroke(crossfaderPosition > 0 ? .purple : Color.white.opacity(0.3), lineWidth: 2)
+                                )
+                        }
+                    }
 
-            // Crossfader
-            VStack(spacing: 12) {
-                Text("CROSSFADER")
-                    .font(.system(size: 12, weight: .bold, design: .rounded))
-                    .foregroundColor(.white.opacity(0.8))
+                    // Crossfader
+                    VStack(spacing: 12) {
+                        Text("CROSSFADER")
+                            .font(.system(size: 12, weight: .bold, design: .rounded))
+                            .foregroundColor(.white.opacity(0.8))
 
-                CrossfaderSlider(position: $crossfaderPosition)
+                        CrossfaderSlider(position: $crossfaderPosition)
 
-                // Mix Level Indicator
-                HStack {
-                    Text("L")
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundColor(crossfaderPosition < -0.1 ? .cyan : .white.opacity(0.5))
+                        // Mix Level Indicator
+                        HStack {
+                            Text("L")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundColor(crossfaderPosition < -0.1 ? .cyan : .white.opacity(0.5))
 
-                    Spacer()
+                            Spacer()
 
-                    Text("MIX")
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundColor(abs(crossfaderPosition) < 0.3 ? .yellow : .white.opacity(0.5))
+                            Text("MIX")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundColor(abs(crossfaderPosition) < 0.3 ? .yellow : .white.opacity(0.5))
 
-                    Spacer()
+                            Spacer()
 
-                    Text("R")
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundColor(crossfaderPosition > 0.1 ? .purple : .white.opacity(0.5))
-                }
-            }
+                            Text("R")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundColor(crossfaderPosition > 0.1 ? .purple : .white.opacity(0.5))
+                        }
+                    }
 
-            // Quick Preset Buttons
-            HStack(spacing: 10) {
-                PresetButton(title: "FEVER") {
-                    withAnimation(.easeInOut(duration: 0.3)) {
-                        crossfaderPosition = -1.0
+                    // Quick Preset Buttons
+                    HStack(spacing: 10) {
+                        PresetButton(title: "FEVER") {
+                            withAnimation(.easeInOut(duration: 0.3)) {
+                                crossfaderPosition = -1.0
+                            }
+                        }
+
+                        PresetButton(title: "MIX") {
+                            withAnimation(.easeInOut(duration: 0.3)) {
+                                crossfaderPosition = 0.0
+                            }
+                        }
+
+                        PresetButton(title: "HYPNO") {
+                            withAnimation(.easeInOut(duration: 0.3)) {
+                                crossfaderPosition = 1.0
+                            }
+                        }
                     }
                 }
-
-                PresetButton(title: "MIX") {
-                    withAnimation(.easeInOut(duration: 0.3)) {
-                        crossfaderPosition = 0.0
-                    }
-                }
-
-                PresetButton(title: "HYPNO") {
-                    withAnimation(.easeInOut(duration: 0.3)) {
-                        crossfaderPosition = 1.0
-                    }
-                }
-            }
-        }
-        .padding(20)
-        .background(
-            RoundedRectangle(cornerRadius: 15)
-                .fill(Color.black.opacity(0.8))
-                .overlay(
+                .padding(20)
+                .background(
                     RoundedRectangle(cornerRadius: 15)
-                        .stroke(
-                            LinearGradient(
-                                colors: [.cyan.opacity(0.6), .purple.opacity(0.6)],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            ),
-                            lineWidth: 1
+                        .fill(Color.black.opacity(0.8))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 15)
+                                .stroke(
+                                    LinearGradient(
+                                        colors: [.cyan.opacity(0.6), .purple.opacity(0.6)],
+                                        startPoint: .leading,
+                                        endPoint: .trailing
+                                    ),
+                                    lineWidth: 1
+                                )
                         )
                 )
-        )
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+        }
         .onChange(of: crossfaderPosition) { _, _ in updateMixer() }
         .onAppear {
-            print("🎚️ CrossfaderView: Mixer appearing")
-            // Don't auto-activate crossfader - let user control it
+            print("🎚️ EffectMixerView: Mixer appearing, activating crossfader")
+            updateMixer()
         }
     }
 
     private func updateMixer() {
-        // Only activate crossfader when user moves it away from center
-        let shouldActivateCrossfader = abs(crossfaderPosition) > 0.1
-        metalRenderer.isCrossfaderActive = shouldActivateCrossfader
+        // Enable crossfader mode in MetalRenderer
+        metalRenderer.isCrossfaderActive = true
 
-        if shouldActivateCrossfader {
-            // Set the two effects and crossfader position
-            metalRenderer.leftEffect = leftEffect
-            metalRenderer.rightEffect = rightEffect
-            metalRenderer.crossfaderPosition = Float(crossfaderPosition)
-            print("🎚️ CrossfaderView: Crossfader activated - Position: \(crossfaderPosition), Left: \(leftEffect), Right: \(rightEffect)")
-        } else {
-            print("🎚️ CrossfaderView: Crossfader disabled - normal effects active")
-        }
+        // Set the two effects and crossfader position
+        metalRenderer.leftEffect = leftEffect
+        metalRenderer.rightEffect = rightEffect
+        metalRenderer.crossfaderPosition = Float(crossfaderPosition)
+
+        print("🎚️ EffectMixerView: Crossfader updated - Position: \(crossfaderPosition), Left: \(leftEffect), Right: \(rightEffect)")
     }
 }
 
