@@ -3,7 +3,7 @@ import StoreKit
 
 struct PremiumMenuView: View {
     @Environment(\.dismiss) private var dismiss
-    @StateObject private var storeManager = StoreManager()
+    @EnvironmentObject var storeManager: StoreManager
     @State private var showingSubscriptionSheet = false
     @State private var showingIndividualEffectSheet = false
     @State private var selectedEffect: PremiumEffect?
@@ -188,6 +188,62 @@ struct PremiumMenuView: View {
                                 .foregroundColor(.white.opacity(0.8))
                         }
                         .padding(.vertical, 15)
+
+                        // Required subscription information per Apple guidelines
+                        VStack(spacing: 12) {
+                            // Subscription details
+                            VStack(spacing: 8) {
+                                Text("Auto-renewable Subscription")
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundColor(.white.opacity(0.8))
+
+                                Text("• Title: FEVER DREAM")
+                                    .font(.system(size: 11))
+                                    .foregroundColor(.white.opacity(0.7))
+
+                                Text("• Length: 1 month")
+                                    .font(.system(size: 11))
+                                    .foregroundColor(.white.opacity(0.7))
+
+                                if let product = storeManager.subscriptionProduct() {
+                                    Text("• Price: \(product.displayPrice) per month after free trial")
+                                        .font(.system(size: 11))
+                                        .foregroundColor(.white.opacity(0.7))
+                                } else {
+                                    Text("• Price: $1.99 per month after free trial")
+                                        .font(.system(size: 11))
+                                        .foregroundColor(.white.opacity(0.7))
+                                }
+                            }
+
+                            // Required links
+                            HStack(spacing: 20) {
+                                Button("Terms of Use") {
+                                    if let url = URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/") {
+                                        UIApplication.shared.open(url)
+                                    }
+                                }
+                                .font(.system(size: 12))
+                                .foregroundColor(.blue)
+                                .underline()
+
+                                Button("Privacy Policy") {
+                                    if let url = URL(string: "https://feverdreaminteractive.github.io/fever-dream-privacy/") {
+                                        UIApplication.shared.open(url)
+                                    }
+                                }
+                                .font(.system(size: 12))
+                                .foregroundColor(.blue)
+                                .underline()
+                            }
+
+                            Text("Payment charged to iTunes Account at confirmation. Subscription automatically renews unless auto-renew is turned off at least 24-hours before the end of the current period. Account charged for renewal within 24-hours prior to the end of the current period. Manage subscriptions in Account Settings after purchase.")
+                                .font(.system(size: 9))
+                                .foregroundColor(.white.opacity(0.6))
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal, 10)
+                        }
+                        .padding(.bottom, 10)
 
                         // Restore Purchases
                         Button("Restore Purchases") {
