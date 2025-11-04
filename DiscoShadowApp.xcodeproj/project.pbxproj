@@ -8,19 +8,20 @@
 
 /* Begin PBXBuildFile section */
 		216E9FDD2E7A4F820099BD99 /* VideoEffectsProcessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = VideoEffectsProcessor_swift_ref /* VideoEffectsProcessor.swift */; };
+		Assets_xcassets_in_Resources /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = Assets_xcassets /* Assets.xcassets */; };
 		AudioManager_swift /* AudioManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AudioManager_swift_ref /* AudioManager.swift */; };
 		CameraManager_swift /* CameraManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = CameraManager_swift_ref /* CameraManager.swift */; };
 		ContentView_swift /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ContentView_swift_ref /* ContentView.swift */; };
 		DiscoShaders_metal /* DiscoShaders.metal in Sources */ = {isa = PBXBuildFile; fileRef = DiscoShaders_metal_ref /* DiscoShaders.metal */; };
 		DiscoShadowApp_swift /* DiscoShadowApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = DiscoShadowApp_swift_ref /* DiscoShadowApp.swift */; };
 		MetalRenderer_swift /* MetalRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = MetalRenderer_swift_ref /* MetalRenderer.swift */; };
-		VideoGalleryView_swift /* VideoGalleryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = VideoGalleryView_swift_ref /* VideoGalleryView.swift */; };
-		StoreManager_swift /* StoreManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = StoreManager_swift_ref /* StoreManager.swift */; };
 		PremiumMenuView_swift /* PremiumMenuView.swift in Sources */ = {isa = PBXBuildFile; fileRef = PremiumMenuView_swift_ref /* PremiumMenuView.swift */; };
-		Assets_xcassets_in_Resources /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = Assets_xcassets /* Assets.xcassets */; };
+		StoreManager_swift /* StoreManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = StoreManager_swift_ref /* StoreManager.swift */; };
+		VideoGalleryView_swift /* VideoGalleryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = VideoGalleryView_swift_ref /* VideoGalleryView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		211F65792EB98E37000A8CA7 /* Configuration.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; name = Configuration.storekit; path = DiscoShadowApp/Configuration.storekit; sourceTree = "<group>"; };
 		Assets_xcassets /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		AudioManager_swift_ref /* AudioManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioManager.swift; sourceTree = "<group>"; };
 		CameraManager_swift_ref /* CameraManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraManager.swift; sourceTree = "<group>"; };
@@ -30,10 +31,10 @@
 		DiscoShadowApp_swift_ref /* DiscoShadowApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiscoShadowApp.swift; sourceTree = "<group>"; };
 		Info_plist /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		MetalRenderer_swift_ref /* MetalRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalRenderer.swift; sourceTree = "<group>"; };
+		PremiumMenuView_swift_ref /* PremiumMenuView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PremiumMenuView.swift; sourceTree = "<group>"; };
+		StoreManager_swift_ref /* StoreManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoreManager.swift; sourceTree = "<group>"; };
 		VideoEffectsProcessor_swift_ref /* VideoEffectsProcessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoEffectsProcessor.swift; sourceTree = "<group>"; };
 		VideoGalleryView_swift_ref /* VideoGalleryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoGalleryView.swift; sourceTree = "<group>"; };
-		StoreManager_swift_ref /* StoreManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoreManager.swift; sourceTree = "<group>"; };
-		PremiumMenuView_swift_ref /* PremiumMenuView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PremiumMenuView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -45,17 +46,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
-
-/* Begin PBXResourcesBuildPhase section */
-		Resources /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				Assets_xcassets_in_Resources /* Assets.xcassets in Resources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXGroup section */
 		DiscoShadowApp_Group /* DiscoShadowApp */ = {
@@ -80,6 +70,7 @@
 		MainGroup = {
 			isa = PBXGroup;
 			children = (
+				211F65792EB98E37000A8CA7 /* Configuration.storekit */,
 				DiscoShadowApp_Group /* DiscoShadowApp */,
 				Products /* Products */,
 			);
@@ -145,6 +136,17 @@
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		Resources /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				Assets_xcassets_in_Resources /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		Sources /* Sources */ = {
@@ -229,21 +231,21 @@
 		Debug_App /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = AWLLM3Q8GW;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = DiscoShadowApp/Info.plist;
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				INFOPLIST_KEY_CFBundleDisplayName = "Fever Dream";
 				INFOPLIST_KEY_NSCameraUsageDescription = "This app uses the camera to create fever dream effects.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait";
-				MARKETING_VERSION = 1.0;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = UIInterfaceOrientationPortrait;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
+				MARKETING_VERSION = 1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.discoshadow.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -308,21 +310,21 @@
 		Release_App /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = AWLLM3Q8GW;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = DiscoShadowApp/Info.plist;
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				INFOPLIST_KEY_CFBundleDisplayName = "Fever Dream";
 				INFOPLIST_KEY_NSCameraUsageDescription = "This app uses the camera to create fever dream effects.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait";
-				MARKETING_VERSION = 1.0;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = UIInterfaceOrientationPortrait;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
+				MARKETING_VERSION = 1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.discoshadow.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;

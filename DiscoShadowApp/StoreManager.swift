@@ -10,12 +10,12 @@ class StoreManager: NSObject, ObservableObject {
     @Published var errorMessage: String?
 
     private let productIdentifiers = Set([
-        "fever_dream_subscription_monthly"
+        "feverdream.premium.monthly"
         // Note: Individual effects no longer sold separately - subscription only
     ])
 
     var hasSubscription: Bool {
-        return purchasedProducts.contains("fever_dream_subscription_monthly")
+        return purchasedProducts.contains("feverdream.premium.monthly")
     }
 
     var ownedEffects: Set<String> {
@@ -29,6 +29,17 @@ class StoreManager: NSObject, ObservableObject {
     override init() {
         super.init()
         SKPaymentQueue.default().add(self)
+
+        // Configure for Xcode 16 StoreKit testing
+        #if DEBUG
+        print("🏪 StoreManager: Running in Xcode 16 DEBUG mode")
+        print("🏪 StoreManager: 🆕 Xcode 16 StoreKit Testing:")
+        print("🏪 StoreManager: 1. In Xcode 16, StoreKit testing is more seamless")
+        print("🏪 StoreManager: 2. Should automatically use Face ID when available")
+        print("🏪 StoreManager: 3. Check Product → Scheme → Edit Scheme → StoreKit Configuration")
+        print("🏪 StoreManager: 4. For production-like testing, disable Configuration.storekit")
+        #endif
+
         loadPurchasedProducts()
         startTransactionObserver()
     }
@@ -38,15 +49,47 @@ class StoreManager: NSObject, ObservableObject {
     }
 
     func loadProducts() {
+        print("🏪 StoreManager: Starting to load products...")
+        print("🏪 StoreManager: Product identifiers: \(productIdentifiers)")
+
+        // Check AppStore availability
+        print("🏪 StoreManager: Checking AppStore availability...")
+        Task {
+            do {
+                let canMakePayments = await AppStore.canMakePayments
+                print("🏪 StoreManager: Can make payments: \(canMakePayments)")
+            } catch {
+                print("🏪 StoreManager: Error checking payment capability: \(error)")
+            }
+        }
+
         isLoading = true
         errorMessage = nil
 
-        Task {
+        Task { @MainActor in
+            print("🏪 StoreManager: Task started...")
             do {
+                print("🏪 StoreManager: Calling Product.products...")
                 let storeProducts = try await Product.products(for: productIdentifiers)
+                print("🏪 StoreManager: Product.products returned")
+                print("🏪 StoreManager: Loaded \(storeProducts.count) products")
+                for product in storeProducts {
+                    print("🏪 StoreManager: Product - ID: \(product.id), Name: \(product.displayName), Price: \(product.displayPrice)")
+                    if let subscription = product.subscription {
+                        print("🏪 StoreManager: Subscription details - Period: \(subscription.subscriptionPeriod)")
+                        if let introOffer = subscription.introductoryOffer {
+                            print("🏪 StoreManager: Intro offer - Type: \(introOffer.type), Period: \(introOffer.period), Price: \(introOffer.displayPrice)")
+                        } else {
+                            print("🏪 StoreManager: No introductory offer found")
+                        }
+                    }
+                }
                 self.products = storeProducts.sorted { $0.displayPrice < $1.displayPrice }
                 self.isLoading = false
+                print("🏪 StoreManager: Products loading complete")
             } catch {
+                print("🏪 StoreManager: ERROR loading products: \(error)")
+                print("🏪 StoreManager: Error type: \(type(of: error))")
                 self.errorMessage = "Failed to load products: \(error.localizedDescription)"
                 self.isLoading = false
             }
@@ -54,21 +97,43 @@ class StoreManager: NSObject, ObservableObject {
     }
 
     func purchase(_ product: Product) async throws {
+        print("💳 StoreManager: [Xcode 16] Starting FRICTIONLESS purchase for product: \(product.id)")
+        print("💳 StoreManager: Product type: \(product.type)")
+        print("💳 StoreManager: Product has introductory offer: \(product.subscription?.introductoryOffer != nil)")
+
+        // Xcode 16 StoreKit 2 improvements - better Face ID integration
+        guard await MainActor.run(body: { true }) else {
+            throw StoreError.failedVerification
+        }
+
+        print("💳 StoreManager: [Xcode 16] Initiating purchase with enhanced authentication...")
+
+        // Xcode 16's StoreKit should automatically handle Face ID for subscription trials
         let result = try await product.purchase()
+        print("💳 StoreManager: [Xcode 16] Purchase result: \(result)")
 
         switch result {
         case .success(let verification):
+            print("💳 StoreManager: ✅ Purchase successful, verifying transaction...")
             let transaction = try checkVerified(verification)
+            print("💳 StoreManager: ✅ Transaction verified: \(transaction.productID)")
+            print("💳 StoreManager: Transaction original ID: \(transaction.originalID)")
             await transaction.finish()
             await updatePurchasedProducts()
+            print("💳 StoreManager: ✅ Purchase completed and verified")
+            print("💳 StoreManager: Current purchased products: \(purchasedProducts)")
+            print("💳 StoreManager: Has active subscription: \(hasSubscription)")
 
         case .userCancelled:
+            print("💳 StoreManager: ❌ Purchase cancelled by user")
             break
 
         case .pending:
+            print("💳 StoreManager: ⏳ Purchase pending - may require family approval")
             break
 
         @unknown default:
+            print("💳 StoreManager: ❓ Unknown purchase result - this shouldn't happen in Xcode 16")
             break
         }
     }
@@ -76,10 +141,17 @@ class StoreManager: NSObject, ObservableObject {
     // Frictionless subscription purchase - automatically starts trial with Face ID
     @MainActor
     func purchaseSubscriptionFrictionless() async throws {
+        print("🔥 StoreManager: Starting frictionless subscription purchase")
+        print("🔥 StoreManager: Available products: \(products.map { $0.id })")
+
         guard let subscriptionProduct = subscriptionProduct() else {
+            print("🔥 StoreManager: ERROR - No subscription product found!")
+            print("🔥 StoreManager: Product count: \(products.count)")
+            print("🔥 StoreManager: Looking for ID: feverdream.premium.monthly")
             throw StoreError.failedVerification
         }
 
+        print("🔥 StoreManager: Found subscription product: \(subscriptionProduct.id)")
         // Trigger immediate purchase with Face ID/Touch ID authentication
         try await purchase(subscriptionProduct)
     }
@@ -107,32 +179,44 @@ class StoreManager: NSObject, ObservableObject {
     }
 
     private func updatePurchasedProducts() async {
+        print("🔄 StoreManager: Updating purchased products...")
+        var foundTransactions = 0
+
         for await result in Transaction.currentEntitlements {
+            foundTransactions += 1
             do {
                 let transaction = try checkVerified(result)
+                print("🔄 StoreManager: Found transaction - Product: \(transaction.productID), Type: \(transaction.productType), Revoked: \(transaction.revocationDate != nil)")
 
                 switch transaction.productType {
                 case .autoRenewable:
                     if transaction.revocationDate == nil {
                         purchasedProducts.insert(transaction.productID)
+                        print("🔄 StoreManager: Added auto-renewable subscription: \(transaction.productID)")
                     } else {
                         purchasedProducts.remove(transaction.productID)
+                        print("🔄 StoreManager: Removed revoked subscription: \(transaction.productID)")
                     }
 
                 case .nonConsumable:
                     if transaction.revocationDate == nil {
                         purchasedProducts.insert(transaction.productID)
+                        print("🔄 StoreManager: Added non-consumable: \(transaction.productID)")
                     } else {
                         purchasedProducts.remove(transaction.productID)
+                        print("🔄 StoreManager: Removed revoked non-consumable: \(transaction.productID)")
                     }
 
                 default:
+                    print("🔄 StoreManager: Skipping transaction type: \(transaction.productType)")
                     break
                 }
             } catch {
-                print("Failed to verify transaction: \(error)")
+                print("🔄 StoreManager: Failed to verify transaction: \(error)")
             }
         }
+
+        print("🔄 StoreManager: Update complete. Found \(foundTransactions) transactions. Purchased products: \(purchasedProducts)")
     }
 
     func productForEffect(_ effect: PremiumEffect) -> Product? {
@@ -140,7 +224,7 @@ class StoreManager: NSObject, ObservableObject {
     }
 
     func subscriptionProduct() -> Product? {
-        return products.first { $0.id == "fever_dream_subscription_monthly" }
+        return products.first { $0.id == "feverdream.premium.monthly" }
     }
 
     func canUseEffect(_ effect: PremiumEffect) -> Bool {

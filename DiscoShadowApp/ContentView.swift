@@ -142,79 +142,46 @@ struct ContentView: View {
     // Capture button for both photo and video
     var captureButton: some View {
         Button(action: {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
-                switch captureMode {
-                case .photo:
-                    cameraManager.capturePhoto()
-                case .video:
-                    if cameraManager.isRecording {
-                        cameraManager.stopRecording()
-                    } else {
-                        cameraManager.startRecording()
-                    }
+            switch captureMode {
+            case .photo:
+                cameraManager.capturePhoto()
+            case .video:
+                if cameraManager.isRecording {
+                    cameraManager.stopRecording()
+                } else {
+                    cameraManager.startRecording()
                 }
             }
         }) {
             ZStack {
-                // Outer ring with gradient animation
+                // Outer ring - native iOS style
                 Circle()
-                    .fill(
-                        cameraManager.isRecording ?
-                        LinearGradient(colors: [Color(red: 1.0, green: 0.0, blue: 1.0), Color(red: 0.0, green: 1.0, blue: 1.0)], startPoint: .topLeading, endPoint: .bottomTrailing) :
-                        LinearGradient(colors: [.white], startPoint: .center, endPoint: .center)
-                    )
-                    .frame(width: 80, height: 80)
-                    .scaleEffect(cameraManager.isRecording ? 1.1 : 1.0)
-                    .opacity(cameraManager.isRecording ? 0.9 : 1.0)
+                    .stroke(Color.white, lineWidth: 6)
+                    .frame(width: 76, height: 76)
 
                 if captureMode == .video {
-                    Circle()
-                        .fill(
-                            cameraManager.isRecording ?
-                            LinearGradient(colors: [Color(red: 1.0, green: 0.0, blue: 1.0), .red], startPoint: .topLeading, endPoint: .bottomTrailing) :
-                            LinearGradient(colors: [.white], startPoint: .center, endPoint: .center)
-                        )
-                        .frame(width: 65, height: 65)
-                        .overlay(
-                            Circle()
-                                .stroke(Color.black.opacity(0.8), lineWidth: 2)
-                        )
-                        .scaleEffect(cameraManager.isRecording ? 0.9 : 1.0)
-
+                    // Video mode
                     if cameraManager.isRecording {
-                        RoundedRectangle(cornerRadius: 6)
-                            .foregroundColor(.white)
-                            .frame(width: 28, height: 28)
-                            .shadow(color: .black.opacity(0.3), radius: 2, x: 0, y: 1)
+                        // Recording state - red square
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(Color.red)
+                            .frame(width: 32, height: 32)
+                    } else {
+                        // Ready to record - red circle
+                        Circle()
+                            .fill(Color.red)
+                            .frame(width: 64, height: 64)
                     }
                 } else {
-                    // Photo mode - simple white circle with subtle animation
+                    // Photo mode - white circle
                     Circle()
-                        .stroke(Color.black.opacity(0.8), lineWidth: 2)
-                        .frame(width: 65, height: 65)
-                        .scaleEffect(1.0)
-                }
-
-                // Recording pulse effect with gradient
-                if cameraManager.isRecording {
-                    Circle()
-                        .stroke(
-                            LinearGradient(colors: [Color(red: 0.0, green: 1.0, blue: 1.0).opacity(0.8), Color(red: 1.0, green: 0.0, blue: 1.0).opacity(0.8)], startPoint: .topLeading, endPoint: .bottomTrailing),
-                            lineWidth: 3
-                        )
-                        .frame(width: 90, height: 90)
-                        .scaleEffect(1.2)
-                        .opacity(0.7)
-                        .animation(
-                            .easeInOut(duration: 1.0)
-                            .repeatForever(autoreverses: true),
-                            value: cameraManager.isRecording
-                        )
+                        .fill(Color.white)
+                        .frame(width: 64, height: 64)
                 }
             }
         }
-        .animation(.spring(response: 0.4, dampingFraction: 0.7), value: cameraManager.isRecording)
-        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: captureMode)
+        .scaleEffect(cameraManager.isRecording ? 0.9 : 1.0)
+        .animation(.easeInOut(duration: 0.1), value: cameraManager.isRecording)
     }
 
     // Media thumbnail preview showing latest captured media
@@ -403,8 +370,6 @@ struct ContentView: View {
             // Always show crossfader mixer
             if let metalRenderer = cameraManager.effectsProcessor.metalRenderer {
                 SimpleCrossfaderView(metalRenderer: metalRenderer, showingMixer: .constant(true), storeManager: storeManager, showPremiumMenu: $showPremiumMenu)
-                    .disabled(cameraManager.isRecording)
-                    .opacity(cameraManager.isRecording ? 0.6 : 1.0)
             }
         }
         .padding(.vertical, 15)
@@ -510,6 +475,9 @@ enum EffectChoice: CaseIterable {
     case badTV
     case strobe
     case convergence
+    case tunnel
+    case analogGlitch
+    case kaleidoscope
 
     var displayName: String {
         switch self {
@@ -518,6 +486,9 @@ enum EffectChoice: CaseIterable {
         case .badTV: return "BAD TV"
         case .strobe: return "STROBE"
         case .convergence: return "CONVERGENCE"
+        case .tunnel: return "TUNNEL"
+        case .analogGlitch: return "ANALOG GLITCH"
+        case .kaleidoscope: return "KALEIDOSCOPE"
         }
     }
 
@@ -528,6 +499,9 @@ enum EffectChoice: CaseIterable {
         case .badTV: return "TV"
         case .strobe: return "STR"
         case .convergence: return "CON"
+        case .tunnel: return "TUN"
+        case .analogGlitch: return "GLT"
+        case .kaleidoscope: return "KAL"
         }
     }
 
@@ -538,13 +512,16 @@ enum EffectChoice: CaseIterable {
         case .badTV: return .badTV
         case .strobe: return .strobe
         case .convergence: return .convergence
+        case .tunnel: return .tunnel
+        case .analogGlitch: return .analogGlitch
+        case .kaleidoscope: return .kaleidoscope
         }
     }
 
     var isBasicEffect: Bool {
         switch self {
         case .feverDream, .strobe: return true  // Basic users get disco and strobe
-        case .hypnotist, .badTV, .convergence: return false  // Premium only
+        case .hypnotist, .badTV, .convergence, .tunnel, .analogGlitch, .kaleidoscope: return false  // Premium only
         }
     }
 
@@ -863,6 +840,9 @@ struct EffectPickerView: View {
         case .badTV: return "Vintage television distortion effects"
         case .strobe: return "Intense flashing light sequences"
         case .convergence: return "Extreme audio-reactive visual convergence"
+        case .tunnel: return "Infinite concentric square tunnel effects"
+        case .analogGlitch: return "VHS-style video interference and artifacts"
+        case .kaleidoscope: return "Bilateral mirror kaleidoscope patterns"
         }
     }
 }

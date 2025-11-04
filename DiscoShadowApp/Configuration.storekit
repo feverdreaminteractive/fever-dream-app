@@ -4,10 +4,116 @@
 
   ],
   "products" : [
-
+    {
+      "displayPrice" : "0.99",
+      "familyShareable" : false,
+      "internalID" : "6670393957",
+      "localizations" : [
+        {
+          "description" : "Hypnotic waves, fast strobing colors, and audio-reactive image shake",
+          "displayName" : "Hypnotist Effect",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "crt_dither_glitch_effect",
+      "referenceName" : "Hypnotist Premium Effect",
+      "type" : "NonConsumable"
+    },
+    {
+      "displayPrice" : "0.99",
+      "familyShareable" : false,
+      "internalID" : "6670393958",
+      "localizations" : [
+        {
+          "description" : "Infinite feedback loops with vintage TV static, creating hypnotic recursive visuals",
+          "displayName" : "Bad TV Effect",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "bad_tv_effect",
+      "referenceName" : "Bad TV Premium Effect",
+      "type" : "NonConsumable"
+    },
+    {
+      "displayPrice" : "0.99",
+      "familyShareable" : false,
+      "internalID" : "6670393959",
+      "localizations" : [
+        {
+          "description" : "Audio-reactive RGB color channel strobing with independent frequency control",
+          "displayName" : "Strobe Effect",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "strobe_effect",
+      "referenceName" : "Strobe Premium Effect",
+      "type" : "NonConsumable"
+    },
+    {
+      "displayPrice" : "0.99",
+      "familyShareable" : false,
+      "internalID" : "6670393960",
+      "localizations" : [
+        {
+          "description" : "RGB channel separation with random displacement creating chromatic aberration glitch effects",
+          "displayName" : "Convergence Effect",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "convergence_effect",
+      "referenceName" : "Convergence Premium Effect",
+      "type" : "NonConsumable"
+    },
+    {
+      "displayPrice" : "0.99",
+      "familyShareable" : false,
+      "internalID" : "6670393961",
+      "localizations" : [
+        {
+          "description" : "Infinite concentric square tunnel with audio-reactive depth and speed variation",
+          "displayName" : "Tunnel Effect",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "tunnel_effect",
+      "referenceName" : "Tunnel Premium Effect",
+      "type" : "NonConsumable"
+    },
+    {
+      "displayPrice" : "0.99",
+      "familyShareable" : false,
+      "internalID" : "6670393962",
+      "localizations" : [
+        {
+          "description" : "VHS-style video interference with scan lines, noise, and color bleeding artifacts",
+          "displayName" : "Analog Glitch Effect",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "analog_glitch_effect",
+      "referenceName" : "Analog Glitch Premium Effect",
+      "type" : "NonConsumable"
+    },
+    {
+      "displayPrice" : "0.99",
+      "familyShareable" : false,
+      "internalID" : "6670393963",
+      "localizations" : [
+        {
+          "description" : "Bilateral mirror kaleidoscope creating symmetric patterns with audio-reactive rotation",
+          "displayName" : "Kaleidoscope Effect",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "kaleidoscope_effect",
+      "referenceName" : "Kaleidoscope Premium Effect",
+      "type" : "NonConsumable"
+    }
   ],
   "settings" : {
     "_failTransactionsEnabled" : false,
+    "_locale" : "en_US",
+    "_storefront" : "USA",
     "_storeKitErrors" : [
       {
         "current" : null,
@@ -87,7 +193,7 @@
               "locale" : "en_US"
             }
           ],
-          "productID" : "fever_dream_subscription_monthly",
+          "productID" : "feverdream.premium.monthly",
           "recurringSubscriptionPeriod" : "P1M",
           "referenceName" : "Fever Dream Monthly Subscription",
           "subscriptionGroupID" : "21444634",
@@ -97,7 +203,7 @@
     }
   ],
   "version" : {
-    "major" : 3,
+    "major" : 4,
     "minor" : 0
   }
 }

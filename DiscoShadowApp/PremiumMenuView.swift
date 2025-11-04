@@ -74,15 +74,36 @@ struct PremiumMenuView: View {
 
                             Button(action: {
                                 Task {
+                                    print("🛒 Button tapped - checking for products...")
+                                    print("🛒 Available products: \(storeManager.products.map { $0.id })")
+
+                                    // Force reload products if none are loaded
+                                    if storeManager.products.isEmpty {
+                                        print("🛒 No products loaded, forcing reload...")
+                                        storeManager.loadProducts()
+
+                                        // Wait a moment for products to load
+                                        try await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds
+                                        print("🛒 After reload, products: \(storeManager.products.map { $0.id })")
+                                    }
+
+                                    guard let product = storeManager.subscriptionProduct() else {
+                                        print("🛒 ERROR: No subscription product found!")
+                                        print("🛒 Products loaded: \(storeManager.products.count)")
+                                        print("🛒 Error message: \(storeManager.errorMessage ?? "none")")
+                                        return
+                                    }
+
+                                    print("🛒 Found product: \(product.id) - \(product.displayName)")
                                     isPurchasing = true
                                     do {
-                                        try await storeManager.purchaseSubscriptionFrictionless()
-                                        // Automatically dismiss on successful purchase
-                                        dismiss()
+                                        print("🛒 Starting purchase...")
+                                        try await storeManager.purchase(product)
+                                        print("🛒 Purchase completed!")
                                     } catch {
-                                        print("Failed to start subscription: \(error)")
-                                        isPurchasing = false
+                                        print("🛒 Purchase failed: \(error)")
                                     }
+                                    isPurchasing = false
                                 }
                             }) {
                                 HStack(spacing: 8) {
@@ -93,7 +114,7 @@ struct PremiumMenuView: View {
                                         Image(systemName: "faceid")
                                             .font(.system(size: 16, weight: .bold))
                                     }
-                                    Text(isPurchasing ? "AUTHENTICATING..." : "START FREE TRIAL")
+                                    Text("START FREE TRIAL")
                                         .font(.system(size: 16, weight: .bold, design: .rounded))
                                 }
                                 .foregroundColor(.black)
@@ -157,17 +178,17 @@ struct PremiumMenuView: View {
                                         effect: effect,
                                         isOwned: storeManager.ownedEffects.contains(effect.id),
                                         onTap: {
-                                            if !storeManager.ownedEffects.contains(effect.id) {
-                                                // All effects require subscription - use frictionless purchase
+                                            // All effects included in subscription - no individual purchases
+                                            if !storeManager.hasSubscription {
                                                 Task {
+                                                    guard let product = storeManager.subscriptionProduct() else { return }
                                                     isPurchasing = true
                                                     do {
-                                                        try await storeManager.purchaseSubscriptionFrictionless()
-                                                        dismiss()
+                                                        try await storeManager.purchase(product)
                                                     } catch {
-                                                        print("Failed to start subscription: \(error)")
-                                                        isPurchasing = false
+                                                        print("Purchase failed: \(error)")
                                                     }
+                                                    isPurchasing = false
                                                 }
                                             }
                                         }
