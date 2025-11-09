@@ -1,0 +1,65 @@
+{
+  "" : {
+    "const-values" : "/Users/feverdream/feverDreamApp2/build/Build/Intermediates.noindex/ArchiveIntermediates/DiscoShadowApp/IntermediateBuildFilesPath/DiscoShadowApp.build/Release-iphonesimulator/DiscoShadowApp.build/Objects-normal/arm64/DiscoShadowApp-master.swiftconstvalues",
+    "dependencies" : "/Users/feverdream/feverDreamApp2/build/Build/Intermediates.noindex/ArchiveIntermediates/DiscoShadowApp/IntermediateBuildFilesPath/DiscoShadowApp.build/Release-iphonesimulator/DiscoShadowApp.build/Objects-normal/arm64/DiscoShadowApp-master.d",
+    "diagnostics" : "/Users/feverdream/feverDreamApp2/build/Build/Intermediates.noindex/ArchiveIntermediates/DiscoShadowApp/IntermediateBuildFilesPath/DiscoShadowApp.build/Release-iphonesimulator/DiscoShadowApp.build/Objects-normal/arm64/DiscoShadowApp-master.dia",
+    "emit-module-dependencies" : "/Users/feverdream/feverDreamApp2/build/Build/Intermediates.noindex/ArchiveIntermediates/DiscoShadowApp/IntermediateBuildFilesPath/DiscoShadowApp.build/Release-iphonesimulator/DiscoShadowApp.build/Objects-normal/arm64/DiscoShadowApp-master-emit-module.d",
+    "emit-module-diagnostics" : "/Users/feverdream/feverDreamApp2/build/Build/Intermediates.noindex/ArchiveIntermediates/DiscoShadowApp/IntermediateBuildFilesPath/DiscoShadowApp.build/Release-iphonesimulator/DiscoShadowApp.build/Objects-normal/arm64/DiscoShadowApp-master-emit-module.dia",
+    "swift-dependencies" : "/Users/feverdream/feverDreamApp2/build/Build/Intermediates.noindex/ArchiveIntermediates/DiscoShadowApp/IntermediateBuildFilesPath/DiscoShadowApp.build/Release-iphonesimulator/DiscoShadowApp.build/Objects-normal/arm64/DiscoShadowApp-master.swiftdeps"
+  },
+  "/Users/feverdream/feverDreamApp2/build/Build/Intermediates.noindex/ArchiveIntermediates/DiscoShadowApp/IntermediateBuildFilesPath/DiscoShadowApp.build/Release-iphonesimulator/DiscoShadowApp.build/DerivedSources/GeneratedAssetSymbols.swift" : {
+    "index-unit-output-path" : "/DiscoShadowApp.build/Release-iphonesimulator/DiscoShadowApp.build/Objects-normal/arm64/GeneratedAssetSymbols.o",
+    "llvm-bc" : "/Users/feverdream/feverDreamApp2/build/Build/Intermediates.noindex/ArchiveIntermediates/DiscoShadowApp/IntermediateBuildFilesPath/DiscoShadowApp.build/Release-iphonesimulator/DiscoShadowApp.build/Objects-normal/arm64/GeneratedAssetSymbols.bc",
+    "object" : "/Users/feverdream/feverDreamApp2/build/Build/Intermediates.noindex/ArchiveIntermediates/DiscoShadowApp/IntermediateBuildFilesPath/DiscoShadowApp.build/Release-iphonesimulator/DiscoShadowApp.build/Objects-normal/arm64/GeneratedAssetSymbols.o"
+  },
+  "/Users/feverdream/feverDreamApp2/DiscoShadowApp/AudioManager.swift" : {
+    "index-unit-output-path" : "/DiscoShadowApp.build/Release-iphonesimulator/DiscoShadowApp.build/Objects-normal/arm64/AudioManager.o",
+    "llvm-bc" : "/Users/feverdream/feverDreamApp2/build/Build/Intermediates.noindex/ArchiveIntermediates/DiscoShadowApp/IntermediateBuildFilesPath/DiscoShadowApp.build/Release-iphonesimulator/DiscoShadowApp.build/Objects-normal/arm64/AudioManager.bc",
+    "object" : "/Users/feverdream/feverDreamApp2/build/Build/Intermediates.noindex/ArchiveIntermediates/DiscoShadowApp/IntermediateBuildFilesPath/DiscoShadowApp.build/Release-iphonesimulator/DiscoShadowApp.build/Objects-normal/arm64/AudioManager.o"
+  },
+  "/Users/feverdream/feverDreamApp2/DiscoShadowApp/CameraManager.swift" : {
+    "index-unit-output-path" : "/DiscoShadowApp.build/Release-iphonesimulator/DiscoShadowApp.build/Objects-normal/arm64/CameraManager.o",
+    "llvm-bc" : "/Users/feverdream/feverDreamApp2/build/Build/Intermediates.noindex/ArchiveIntermediates/DiscoShadowApp/IntermediateBuildFilesPath/DiscoShadowApp.build/Release-iphonesimulator/DiscoShadowApp.build/Objects-normal/arm64/CameraManager.bc",
+    "object" : "/Users/feverdream/feverDreamApp2/build/Build/Intermediates.noindex/ArchiveIntermediates/DiscoShadowApp/IntermediateBuildFilesPath/DiscoShadowApp.build/Release-iphonesimulator/DiscoShadowApp.build/Objects-normal/arm64/CameraManager.o"
+  },
+  "/Users/feverdream/feverDreamApp2/DiscoShadowApp/ContentView.swift" : {
+    "index-unit-output-path" : "/DiscoShadowApp.build/Release-iphonesimulator/DiscoShadowApp.build/Objects-normal/arm64/ContentView.o",
+    "llvm-bc" : "/Users/feverdream/feverDreamApp2/build/Build/Intermediates.noindex/ArchiveIntermediates/DiscoShadowApp/IntermediateBuildFilesPath/DiscoShadowApp.build/Release-iphonesimulator/DiscoShadowApp.build/Objects-normal/arm64/ContentView.bc",
+    "object" : "/Users/feverdream/feverDreamApp2/build/Build/Intermediates.noindex/ArchiveIntermediates/DiscoShadowApp/IntermediateBuildFilesPath/DiscoShadowApp.build/Release-iphonesimulator/DiscoShadowApp.build/Objects-normal/arm64/ContentView.o"
+  },
+  "/Users/feverdream/feverDreamApp2/DiscoShadowApp/DiscoShadowApp.swift" : {
+    "index-unit-output-path" : "/DiscoShadowApp.build/Release-iphonesimulator/DiscoShadowApp.build/Objects-normal/arm64/DiscoShadowApp.o",
+    "llvm-bc" : "/Users/feverdream/feverDreamApp2/build/Build/Intermediates.noindex/ArchiveIntermediates/DiscoShadowApp/IntermediateBuildFilesPath/DiscoShadowApp.build/Release-iphonesimulator/DiscoShadowApp.build/Objects-normal/arm64/DiscoShadowApp.bc",
+    "object" : "/Users/feverdream/feverDreamApp2/build/Build/Intermediates.noindex/ArchiveIntermediates/DiscoShadowApp/IntermediateBuildFilesPath/DiscoShadowApp.build/Release-iphonesimulator/DiscoShadowApp.build/Objects-normal/arm64/DiscoShadowApp.o"
+  },
+  "/Users/feverdream/feverDreamApp2/DiscoShadowApp/MetalRenderer.swift" : {
+    "index-unit-output-path" : "/DiscoShadowApp.build/Release-iphonesimulator/DiscoShadowApp.build/Objects-normal/arm64/MetalRenderer.o",
+    "llvm-bc" : "/Users/feverdream/feverDreamApp2/build/Build/Intermediates.noindex/ArchiveIntermediates/DiscoShadowApp/IntermediateBuildFilesPath/DiscoShadowApp.build/Release-iphonesimulator/DiscoShadowApp.build/Objects-normal/arm64/MetalRenderer.bc",
+    "object" : "/Users/feverdream/feverDreamApp2/build/Build/Intermediates.noindex/ArchiveIntermediates/DiscoShadowApp/IntermediateBuildFilesPath/DiscoShadowApp.build/Release-iphonesimulator/DiscoShadowApp.build/Objects-normal/arm64/MetalRenderer.o"
+  },
+  "/Users/feverdream/feverDreamApp2/DiscoShadowApp/PremiumMenuView.swift" : {
+    "index-unit-output-path" : "/DiscoShadowApp.build/Release-iphonesimulator/DiscoShadowApp.build/Objects-normal/arm64/PremiumMenuView.o",
+    "llvm-bc" : "/Users/feverdream/feverDreamApp2/build/Build/Intermediates.noindex/ArchiveIntermediates/DiscoShadowApp/IntermediateBuildFilesPath/DiscoShadowApp.build/Release-iphonesimulator/DiscoShadowApp.build/Objects-normal/arm64/PremiumMenuView.bc",
+    "object" : "/Users/feverdream/feverDreamApp2/build/Build/Intermediates.noindex/ArchiveIntermediates/DiscoShadowApp/IntermediateBuildFilesPath/DiscoShadowApp.build/Release-iphonesimulator/DiscoShadowApp.build/Objects-normal/arm64/PremiumMenuView.o"
+  },
+  "/Users/feverdream/feverDreamApp2/DiscoShadowApp/SimpleMusicManager.swift" : {
+    "index-unit-output-path" : "/DiscoShadowApp.build/Release-iphonesimulator/DiscoShadowApp.build/Objects-normal/arm64/SimpleMusicManager.o",
+    "llvm-bc" : "/Users/feverdream/feverDreamApp2/build/Build/Intermediates.noindex/ArchiveIntermediates/DiscoShadowApp/IntermediateBuildFilesPath/DiscoShadowApp.build/Release-iphonesimulator/DiscoShadowApp.build/Objects-normal/arm64/SimpleMusicManager.bc",
+    "object" : "/Users/feverdream/feverDreamApp2/build/Build/Intermediates.noindex/ArchiveIntermediates/DiscoShadowApp/IntermediateBuildFilesPath/DiscoShadowApp.build/Release-iphonesimulator/DiscoShadowApp.build/Objects-normal/arm64/SimpleMusicManager.o"
+  },
+  "/Users/feverdream/feverDreamApp2/DiscoShadowApp/StoreManager.swift" : {
+    "index-unit-output-path" : "/DiscoShadowApp.build/Release-iphonesimulator/DiscoShadowApp.build/Objects-normal/arm64/StoreManager.o",
+    "llvm-bc" : "/Users/feverdream/feverDreamApp2/build/Build/Intermediates.noindex/ArchiveIntermediates/DiscoShadowApp/IntermediateBuildFilesPath/DiscoShadowApp.build/Release-iphonesimulator/DiscoShadowApp.build/Objects-normal/arm64/StoreManager.bc",
+    "object" : "/Users/feverdream/feverDreamApp2/build/Build/Intermediates.noindex/ArchiveIntermediates/DiscoShadowApp/IntermediateBuildFilesPath/DiscoShadowApp.build/Release-iphonesimulator/DiscoShadowApp.build/Objects-normal/arm64/StoreManager.o"
+  },
+  "/Users/feverdream/feverDreamApp2/DiscoShadowApp/VideoEffectsProcessor.swift" : {
+    "index-unit-output-path" : "/DiscoShadowApp.build/Release-iphonesimulator/DiscoShadowApp.build/Objects-normal/arm64/VideoEffectsProcessor.o",
+    "llvm-bc" : "/Users/feverdream/feverDreamApp2/build/Build/Intermediates.noindex/ArchiveIntermediates/DiscoShadowApp/IntermediateBuildFilesPath/DiscoShadowApp.build/Release-iphonesimulator/DiscoShadowApp.build/Objects-normal/arm64/VideoEffectsProcessor.bc",
+    "object" : "/Users/feverdream/feverDreamApp2/build/Build/Intermediates.noindex/ArchiveIntermediates/DiscoShadowApp/IntermediateBuildFilesPath/DiscoShadowApp.build/Release-iphonesimulator/DiscoShadowApp.build/Objects-normal/arm64/VideoEffectsProcessor.o"
+  },
+  "/Users/feverdream/feverDreamApp2/DiscoShadowApp/VideoGalleryView.swift" : {
+    "index-unit-output-path" : "/DiscoShadowApp.build/Release-iphonesimulator/DiscoShadowApp.build/Objects-normal/arm64/VideoGalleryView.o",
+    "llvm-bc" : "/Users/feverdream/feverDreamApp2/build/Build/Intermediates.noindex/ArchiveIntermediates/DiscoShadowApp/IntermediateBuildFilesPath/DiscoShadowApp.build/Release-iphonesimulator/DiscoShadowApp.build/Objects-normal/arm64/VideoGalleryView.bc",
+    "object" : "/Users/feverdream/feverDreamApp2/build/Build/Intermediates.noindex/ArchiveIntermediates/DiscoShadowApp/IntermediateBuildFilesPath/DiscoShadowApp.build/Release-iphonesimulator/DiscoShadowApp.build/Objects-normal/arm64/VideoGalleryView.o"
+  }
+}

@@ -10,5 +10,7 @@
     <string>This app needs access to save your psychedelic video recordings to Photos.</string>
     <key>NSPhotoLibraryUsageDescription</key>
     <string>This app needs access to display your Fever Dream video recordings in the gallery.</string>
+    <key>NSAppleMusicUsageDescription</key>
+    <string>This app needs access to your music library and Apple Music catalog to add background music to your psychedelic videos and enhance visual effects.</string>
 </dict>
 </plist>

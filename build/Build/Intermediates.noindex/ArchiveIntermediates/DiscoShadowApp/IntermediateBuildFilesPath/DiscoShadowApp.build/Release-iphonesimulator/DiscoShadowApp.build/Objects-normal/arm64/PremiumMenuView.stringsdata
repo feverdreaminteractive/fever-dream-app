@@ -1,0 +1,216 @@
+{
+  "source": "/Users/feverdream/feverDreamApp2/DiscoShadowApp/PremiumMenuView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Restore Purchases",
+        "location": {
+          "startingColumn": 32,
+          "startingLine": 270
+        }
+      },
+      {
+        "comment": "",
+        "key": "FΣVΣЯ DЯΣΛM",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 21
+        }
+      },
+      {
+        "comment": "",
+        "key": "PREMIUM EFFECTS",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 27
+        }
+      },
+      {
+        "comment": "",
+        "key": "Unlock advanced visual effects",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 31
+        }
+      },
+      {
+        "comment": "",
+        "key": "All premium effects • 1 month free trial",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 51
+        }
+      },
+      {
+        "comment": "",
+        "key": "UNLIMITED ACCESS",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 46
+        }
+      },
+      {
+        "comment": "",
+        "key": "1 month free, then $1.99/month",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 69
+        }
+      },
+      {
+        "comment": "",
+        "key": "FREE",
+        "location": {
+          "startingColumn": 46,
+          "startingLine": 58
+        }
+      },
+      {
+        "comment": "",
+        "key": "then",
+        "location": {
+          "startingColumn": 46,
+          "startingLine": 61
+        }
+      },
+      {
+        "comment": "",
+        "key": "$1.99",
+        "location": {
+          "startingColumn": 46,
+          "startingLine": 64
+        }
+      },
+      {
+        "comment": "",
+        "key": "START FREE TRIAL",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 117
+        }
+      },
+      {
+        "comment": "",
+        "key": "OR",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 155
+        }
+      },
+      {
+        "comment": "",
+        "key": "BUY INDIVIDUAL EFFECTS",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 168
+        }
+      },
+      {
+        "comment": "",
+        "key": "🎉 FREE for 30 days!",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 203
+        }
+      },
+      {
+        "comment": "",
+        "key": "Cancel anytime. No commitment.",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 207
+        }
+      },
+      {
+        "comment": "",
+        "key": "Payment charged to iTunes Account at confirmation. Subscription automatically renews unless auto-renew is turned off at least 24-hours before the end of the current period. Account charged for renewal within 24-hours prior to the end of the current period. Manage subscriptions in Account Settings after purchase.",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 261
+        }
+      },
+      {
+        "comment": "",
+        "key": "Auto-renewable Subscription",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 217
+        }
+      },
+      {
+        "comment": "",
+        "key": "• Title: FEVER DREAM",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 221
+        }
+      },
+      {
+        "comment": "",
+        "key": "• Length: 1 month",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 225
+        }
+      },
+      {
+        "comment": "",
+        "key": "• Price: $1.99 per month after free trial",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 234
+        }
+      },
+      {
+        "comment": "",
+        "key": "• Price: %@ per month after free trial",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 230
+        }
+      },
+      {
+        "comment": "",
+        "key": "Terms of Use",
+        "location": {
+          "startingColumn": 40,
+          "startingLine": 242
+        }
+      },
+      {
+        "comment": "",
+        "key": "Privacy Policy",
+        "location": {
+          "startingColumn": 40,
+          "startingLine": 251
+        }
+      },
+      {
+        "comment": "",
+        "key": "Close",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 282
+        }
+      },
+      {
+        "comment": "",
+        "key": "OWNED",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 333
+        }
+      },
+      {
+        "comment": "",
+        "key": "PREMIUM",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 348
+        }
+      }
+    ]
+  },
+  "version": 1
+}

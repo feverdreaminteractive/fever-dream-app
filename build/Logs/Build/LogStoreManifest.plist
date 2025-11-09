@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>logFormatVersion</key>
+	<integer>11</integer>
+	<key>logs</key>
+	<dict>
+		<key>0939985A-20D4-4875-A300-2B7FD5944A8C</key>
+		<dict>
+			<key>className</key>
+			<string>IDECommandLineBuildLog</string>
+			<key>documentTypeString</key>
+			<string>&lt;nil&gt;</string>
+			<key>domainType</key>
+			<string>Xcode.IDEActivityLogDomainType.BuildLog</string>
+			<key>fileName</key>
+			<string>0939985A-20D4-4875-A300-2B7FD5944A8C.xcactivitylog</string>
+			<key>hasPrimaryLog</key>
+			<true/>
+			<key>primaryObservable</key>
+			<dict>
+				<key>highLevelStatus</key>
+				<string>W</string>
+				<key>totalNumberOfAnalyzerIssues</key>
+				<integer>0</integer>
+				<key>totalNumberOfErrors</key>
+				<integer>0</integer>
+				<key>totalNumberOfTestFailures</key>
+				<integer>0</integer>
+				<key>totalNumberOfWarnings</key>
+				<integer>41</integer>
+			</dict>
+			<key>schemeIdentifier-containerName</key>
+			<string>DiscoShadowApp project</string>
+			<key>schemeIdentifier-schemeName</key>
+			<string>DiscoShadowApp</string>
+			<key>schemeIdentifier-sharedScheme</key>
+			<integer>1</integer>
+			<key>signature</key>
+			<string>Archiving project DiscoShadowApp with scheme DiscoShadowApp</string>
+			<key>timeStartedRecording</key>
+			<real>784190043.82410502</real>
+			<key>timeStoppedRecording</key>
+			<real>784190065.37741101</real>
+			<key>title</key>
+			<string>Archiving project DiscoShadowApp with scheme DiscoShadowApp</string>
+			<key>uniqueIdentifier</key>
+			<string>0939985A-20D4-4875-A300-2B7FD5944A8C</string>
+		</dict>
+		<key>E4AAEFB9-D610-4ECD-9C14-AD0AD6D6B693</key>
+		<dict>
+			<key>className</key>
+			<string>IDECommandLineBuildLog</string>
+			<key>documentTypeString</key>
+			<string>&lt;nil&gt;</string>
+			<key>domainType</key>
+			<string>Xcode.IDEActivityLogDomainType.BuildLog</string>
+			<key>fileName</key>
+			<string>E4AAEFB9-D610-4ECD-9C14-AD0AD6D6B693.xcactivitylog</string>
+			<key>hasPrimaryLog</key>
+			<true/>
+			<key>primaryObservable</key>
+			<dict>
+				<key>highLevelStatus</key>
+				<string>W</string>
+				<key>totalNumberOfAnalyzerIssues</key>
+				<integer>0</integer>
+				<key>totalNumberOfErrors</key>
+				<integer>0</integer>
+				<key>totalNumberOfTestFailures</key>
+				<integer>0</integer>
+				<key>totalNumberOfWarnings</key>
+				<integer>41</integer>
+			</dict>
+			<key>schemeIdentifier-containerName</key>
+			<string>DiscoShadowApp project</string>
+			<key>schemeIdentifier-schemeName</key>
+			<string>DiscoShadowApp</string>
+			<key>schemeIdentifier-sharedScheme</key>
+			<integer>1</integer>
+			<key>signature</key>
+			<string>Archiving project DiscoShadowApp with scheme DiscoShadowApp</string>
+			<key>timeStartedRecording</key>
+			<real>784190123.64827394</real>
+			<key>timeStoppedRecording</key>
+			<real>784190145.970402</real>
+			<key>title</key>
+			<string>Archiving project DiscoShadowApp with scheme DiscoShadowApp</string>
+			<key>uniqueIdentifier</key>
+			<string>E4AAEFB9-D610-4ECD-9C14-AD0AD6D6B693</string>
+		</dict>
+	</dict>
+</dict>
+</plist>

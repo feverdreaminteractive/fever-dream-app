@@ -1,0 +1,144 @@
+{
+  "source": "/Users/feverdream/feverDreamApp2/DiscoShadowApp/InstagramStyleMusicBrowser.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Music Access Required",
+        "location": {
+          "startingColumn": 16,
+          "startingLine": 49
+        }
+      },
+      {
+        "comment": "",
+        "key": "Add Music",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 35
+        }
+      },
+      {
+        "comment": "",
+        "key": "Cancel",
+        "location": {
+          "startingColumn": 33,
+          "startingLine": 38
+        }
+      },
+      {
+        "comment": "",
+        "key": "Done",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 41
+        }
+      },
+      {
+        "comment": "",
+        "key": "Settings",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 50
+        }
+      },
+      {
+        "comment": "",
+        "key": "Cancel",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 55
+        }
+      },
+      {
+        "comment": "",
+        "key": "Enable Apple Music access in Settings to browse and select music for your videos.",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 57
+        }
+      },
+      {
+        "comment": "",
+        "key": "Search songs, artists, albums...",
+        "location": {
+          "startingColumn": 23,
+          "startingLine": 68
+        }
+      },
+      {
+        "comment": "",
+        "key": "Search Results",
+        "location": {
+          "startingColumn": 25,
+          "startingLine": 118
+        }
+      },
+      {
+        "comment": "",
+        "key": "🔥 Trending Now",
+        "location": {
+          "startingColumn": 29,
+          "startingLine": 129
+        }
+      },
+      {
+        "comment": "",
+        "key": "✨ For You",
+        "location": {
+          "startingColumn": 29,
+          "startingLine": 137
+        }
+      },
+      {
+        "comment": "",
+        "key": "🎨 Perfect for Visual Effects",
+        "location": {
+          "startingColumn": 29,
+          "startingLine": 156
+        }
+      },
+      {
+        "comment": "",
+        "key": "Loading music...",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 173
+        }
+      },
+      {
+        "comment": "",
+        "key": "Music Integration",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 185
+        }
+      },
+      {
+        "comment": "",
+        "key": "Note: Full Apple Music search requires:\n• Apple Music subscription\n• Authorization on real device\n\nSimulator may show demo mode",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 214
+        }
+      },
+      {
+        "comment": "",
+        "key": "Request Apple Music Access",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 196
+        }
+      },
+      {
+        "comment": "",
+        "key": "Try Search Anyway (Demo)",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 204
+        }
+      }
+    ]
+  },
+  "version": 1
+}

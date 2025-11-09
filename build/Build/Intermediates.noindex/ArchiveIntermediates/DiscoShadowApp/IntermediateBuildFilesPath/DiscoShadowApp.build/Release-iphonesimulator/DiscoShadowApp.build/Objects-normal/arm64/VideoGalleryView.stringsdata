@@ -1,0 +1,184 @@
+{
+  "source": "/Users/feverdream/feverDreamApp2/DiscoShadowApp/VideoGalleryView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "FΣVΣЯ DЯΣΛM",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 78
+        }
+      },
+      {
+        "comment": "",
+        "key": "Loading Fever Dream media...",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 30
+        }
+      },
+      {
+        "comment": "",
+        "key": "No Fever Dream Media",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 40
+        }
+      },
+      {
+        "comment": "",
+        "key": "Capture some psychedelic photos and videos to see them here!",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 45
+        }
+      },
+      {
+        "comment": "",
+        "key": "Close",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 82
+        }
+      },
+      {
+        "comment": "",
+        "key": "Delete Video",
+        "location": {
+          "startingColumn": 16,
+          "startingLine": 572
+        }
+      },
+      {
+        "comment": "",
+        "key": "Loading Video...",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 490
+        }
+      },
+      {
+        "comment": "",
+        "key": "Preparing psychedelic experience",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 495
+        }
+      },
+      {
+        "comment": "",
+        "key": "Done",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 507
+        }
+      },
+      {
+        "comment": "",
+        "key": "Share",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 529
+        }
+      },
+      {
+        "comment": "",
+        "key": "Delete",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 547
+        }
+      },
+      {
+        "comment": "",
+        "key": "Delete",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 573
+        }
+      },
+      {
+        "comment": "",
+        "key": "Cancel",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 576
+        }
+      },
+      {
+        "comment": "",
+        "key": "Are you sure you want to delete this video? This action cannot be undone.",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 578
+        }
+      },
+      {
+        "comment": "",
+        "key": "Delete Photo",
+        "location": {
+          "startingColumn": 16,
+          "startingLine": 781
+        }
+      },
+      {
+        "comment": "",
+        "key": "Loading photo...",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 710
+        }
+      },
+      {
+        "comment": "",
+        "key": "Done",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 719
+        }
+      },
+      {
+        "comment": "",
+        "key": "Share",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 740
+        }
+      },
+      {
+        "comment": "",
+        "key": "Delete",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 758
+        }
+      },
+      {
+        "comment": "",
+        "key": "Delete",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 782
+        }
+      },
+      {
+        "comment": "",
+        "key": "Cancel",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 785
+        }
+      },
+      {
+        "comment": "",
+        "key": "Are you sure you want to delete this photo? This action cannot be undone.",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 787
+        }
+      }
+    ]
+  },
+  "version": 1
+}

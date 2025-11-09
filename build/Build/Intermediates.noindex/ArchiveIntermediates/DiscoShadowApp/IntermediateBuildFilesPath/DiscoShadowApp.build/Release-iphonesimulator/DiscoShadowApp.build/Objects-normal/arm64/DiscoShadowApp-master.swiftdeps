@@ -1,0 +1,19 @@
+version: "Apple Swift version 6.0 (swiftlang-6.0.0.9.10 clang-1600.0.26.2)"
+options: "5c801738d5cd82285123f9720b725e7922e13910154da28fe0ac211ea1117099"
+build_start_time: [1762497326, 904358000]
+build_end_time: [1762497345, 940022000]
+inputs:
+  "/Users/feverdream/feverDreamApp2/DiscoShadowApp/AudioManager.swift": [1762495175, 846611394]
+  "/Users/feverdream/feverDreamApp2/DiscoShadowApp/CameraManager.swift": [1761093165, 648780855]
+  "/Users/feverdream/feverDreamApp2/DiscoShadowApp/ContentView.swift": [1762496680, 194372983]
+  "/Users/feverdream/feverDreamApp2/DiscoShadowApp/DiscoShadowApp.swift": [1761057921, 795955285]
+  "/Users/feverdream/feverDreamApp2/DiscoShadowApp/InstagramStyleMusicBrowser.swift": [1762497294, 48492820]
+  "/Users/feverdream/feverDreamApp2/DiscoShadowApp/MetalRenderer.swift": [1762218920, 117273874]
+  "/Users/feverdream/feverDreamApp2/DiscoShadowApp/MusicAPIService.swift": [1762497158, 243210745]
+  "/Users/feverdream/feverDreamApp2/DiscoShadowApp/PremiumMenuView.swift": [1762219515, 46504642]
+  "/Users/feverdream/feverDreamApp2/DiscoShadowApp/SimpleMusicManager.swift": [1762496032, 467573259]
+  "/Users/feverdream/feverDreamApp2/DiscoShadowApp/StoreManager.swift": [1762219487, 559051962]
+  "/Users/feverdream/feverDreamApp2/DiscoShadowApp/VideoEffectsProcessor.swift": [1762218920, 118256386]
+  "/Users/feverdream/feverDreamApp2/DiscoShadowApp/VideoGalleryView.swift": [1761074085, 116889102]
+  ? "/Users/feverdream/feverDreamApp2/build/Build/Intermediates.noindex/ArchiveIntermediates/DiscoShadowApp/IntermediateBuildFilesPath/DiscoShadowApp.build/Release-iphonesimulator/DiscoShadowApp.build/DerivedSources/GeneratedAssetSymbols.swift"
+  : [1762496267, 688804953]

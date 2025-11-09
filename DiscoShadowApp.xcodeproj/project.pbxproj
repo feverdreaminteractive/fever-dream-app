@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		211F657D2EBDD4DD000A8CA7 /* AuthKey_BV9L8FK2BJ.p8 in Resources */ = {isa = PBXBuildFile; fileRef = 211F657C2EBDD4DD000A8CA7 /* AuthKey_BV9L8FK2BJ.p8 */; };
 		216E9FDD2E7A4F820099BD99 /* VideoEffectsProcessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = VideoEffectsProcessor_swift_ref /* VideoEffectsProcessor.swift */; };
 		Assets_xcassets_in_Resources /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = Assets_xcassets /* Assets.xcassets */; };
 		AudioManager_swift /* AudioManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AudioManager_swift_ref /* AudioManager.swift */; };
@@ -14,14 +15,19 @@
 		ContentView_swift /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ContentView_swift_ref /* ContentView.swift */; };
 		DiscoShaders_metal /* DiscoShaders.metal in Sources */ = {isa = PBXBuildFile; fileRef = DiscoShaders_metal_ref /* DiscoShaders.metal */; };
 		DiscoShadowApp_swift /* DiscoShadowApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = DiscoShadowApp_swift_ref /* DiscoShadowApp.swift */; };
+		InstagramStyleMusicBrowser_swift /* InstagramStyleMusicBrowser.swift in Sources */ = {isa = PBXBuildFile; fileRef = InstagramStyleMusicBrowser_swift_ref /* InstagramStyleMusicBrowser.swift */; };
 		MetalRenderer_swift /* MetalRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = MetalRenderer_swift_ref /* MetalRenderer.swift */; };
+		MusicAPIService_swift /* MusicAPIService.swift in Sources */ = {isa = PBXBuildFile; fileRef = MusicAPIService_swift_ref /* MusicAPIService.swift */; };
 		PremiumMenuView_swift /* PremiumMenuView.swift in Sources */ = {isa = PBXBuildFile; fileRef = PremiumMenuView_swift_ref /* PremiumMenuView.swift */; };
+		SimpleMusicManager_swift /* SimpleMusicManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = SimpleMusicManager_swift_ref /* SimpleMusicManager.swift */; };
 		StoreManager_swift /* StoreManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = StoreManager_swift_ref /* StoreManager.swift */; };
 		VideoGalleryView_swift /* VideoGalleryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = VideoGalleryView_swift_ref /* VideoGalleryView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		211F65792EB98E37000A8CA7 /* Configuration.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; name = Configuration.storekit; path = DiscoShadowApp/Configuration.storekit; sourceTree = "<group>"; };
+		211F657B2EBDD0BA000A8CA7 /* DiscoShadowApp.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = DiscoShadowApp.entitlements; sourceTree = "<group>"; };
+		211F657C2EBDD4DD000A8CA7 /* AuthKey_BV9L8FK2BJ.p8 */ = {isa = PBXFileReference; lastKnownFileType = text; path = AuthKey_BV9L8FK2BJ.p8; sourceTree = "<group>"; };
 		Assets_xcassets /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		AudioManager_swift_ref /* AudioManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioManager.swift; sourceTree = "<group>"; };
 		CameraManager_swift_ref /* CameraManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraManager.swift; sourceTree = "<group>"; };
@@ -30,8 +36,11 @@
 		DiscoShadowApp_app /* DiscoShadowApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DiscoShadowApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		DiscoShadowApp_swift_ref /* DiscoShadowApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiscoShadowApp.swift; sourceTree = "<group>"; };
 		Info_plist /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		InstagramStyleMusicBrowser_swift_ref /* InstagramStyleMusicBrowser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InstagramStyleMusicBrowser.swift; sourceTree = "<group>"; };
 		MetalRenderer_swift_ref /* MetalRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalRenderer.swift; sourceTree = "<group>"; };
+		MusicAPIService_swift_ref /* MusicAPIService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MusicAPIService.swift; sourceTree = "<group>"; };
 		PremiumMenuView_swift_ref /* PremiumMenuView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PremiumMenuView.swift; sourceTree = "<group>"; };
+		SimpleMusicManager_swift_ref /* SimpleMusicManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SimpleMusicManager.swift; sourceTree = "<group>"; };
 		StoreManager_swift_ref /* StoreManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoreManager.swift; sourceTree = "<group>"; };
 		VideoEffectsProcessor_swift_ref /* VideoEffectsProcessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoEffectsProcessor.swift; sourceTree = "<group>"; };
 		VideoGalleryView_swift_ref /* VideoGalleryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoGalleryView.swift; sourceTree = "<group>"; };
@@ -61,6 +70,9 @@
 				VideoGalleryView_swift_ref /* VideoGalleryView.swift */,
 				StoreManager_swift_ref /* StoreManager.swift */,
 				PremiumMenuView_swift_ref /* PremiumMenuView.swift */,
+				SimpleMusicManager_swift_ref /* SimpleMusicManager.swift */,
+				MusicAPIService_swift_ref /* MusicAPIService.swift */,
+				InstagramStyleMusicBrowser_swift_ref /* InstagramStyleMusicBrowser.swift */,
 				DiscoShaders_metal_ref /* DiscoShaders.metal */,
 				Info_plist /* Info.plist */,
 			);
@@ -70,9 +82,11 @@
 		MainGroup = {
 			isa = PBXGroup;
 			children = (
+				211F657B2EBDD0BA000A8CA7 /* DiscoShadowApp.entitlements */,
 				211F65792EB98E37000A8CA7 /* Configuration.storekit */,
 				DiscoShadowApp_Group /* DiscoShadowApp */,
 				Products /* Products */,
+				211F657C2EBDD4DD000A8CA7 /* AuthKey_BV9L8FK2BJ.p8 */,
 			);
 			sourceTree = "<group>";
 		};
@@ -143,6 +157,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				Assets_xcassets_in_Resources /* Assets.xcassets in Resources */,
+				211F657D2EBDD4DD000A8CA7 /* AuthKey_BV9L8FK2BJ.p8 in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -162,6 +177,9 @@
 				VideoGalleryView_swift /* VideoGalleryView.swift in Sources */,
 				StoreManager_swift /* StoreManager.swift in Sources */,
 				PremiumMenuView_swift /* PremiumMenuView.swift in Sources */,
+				SimpleMusicManager_swift /* SimpleMusicManager.swift in Sources */,
+				MusicAPIService_swift /* MusicAPIService.swift in Sources */,
+				InstagramStyleMusicBrowser_swift /* InstagramStyleMusicBrowser.swift in Sources */,
 				DiscoShaders_metal /* DiscoShaders.metal in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -233,7 +251,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = AWLLM3Q8GW;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -245,7 +263,11 @@
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = UIInterfaceOrientationPortrait;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
-				MARKETING_VERSION = 1.1;
+				MARKETING_VERSION = 1.2;
+				OTHER_LDFLAGS = (
+					"-framework",
+					MusicKit,
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.discoshadow.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -312,7 +334,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = AWLLM3Q8GW;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -324,7 +346,11 @@
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = UIInterfaceOrientationPortrait;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
-				MARKETING_VERSION = 1.1;
+				MARKETING_VERSION = 1.2;
+				OTHER_LDFLAGS = (
+					"-framework",
+					MusicKit,
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.discoshadow.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;

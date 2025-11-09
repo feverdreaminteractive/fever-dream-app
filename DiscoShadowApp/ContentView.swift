@@ -3,6 +3,8 @@ import AVFoundation
 import Metal
 import MetalKit
 import UIKit
+import MusicKit
+import MediaPlayer
 
 enum CaptureMode: String, CaseIterable {
     case photo = "PHOTO"
@@ -22,6 +24,11 @@ struct ContentView: View {
     @State private var showModeSelector = false
     @State private var latestMediaThumbnail: UIImage?
     @State private var hasMediaFiles = false
+    @State private var showMusicBrowser = false
+    @State private var selectedSong: Song?
+    @StateObject private var simpleMusicManager = SimpleMusicManager()
+    @State private var musicVolume: Float = 0.5
+    @State private var isPlayingMusic = false
 
     // All available effects (including default as nil)
     private var allEffects: [PremiumEffect?] {
@@ -297,9 +304,56 @@ struct ContentView: View {
 
                 Spacer()
 
+                // Music controls in top center
+                if #available(iOS 15.0, *) {
+                    HStack(spacing: 12) {
+                        // Music browser button
+                        Button(action: {
+                            showMusicBrowser = true
+                        }) {
+                            Image(systemName: selectedSong != nil ? "music.note" : "music.note.list")
+                                .foregroundColor(selectedSong != nil ? .purple : .white)
+                                .font(.system(size: 20, weight: .medium))
+                        }
+
+                        // Play/pause button (only show if song selected)
+                        if selectedSong != nil {
+                            Button(action: {
+                                Task {
+                                    await toggleMusicPlayback()
+                                }
+                            }) {
+                                Image(systemName: isPlayingMusic ? "pause.fill" : "play.fill")
+                                    .foregroundColor(.purple)
+                                    .font(.system(size: 16, weight: .medium))
+                            }
+
+                            // Small volume slider
+                            HStack(spacing: 4) {
+                                Image(systemName: "speaker.fill")
+                                    .foregroundColor(.white.opacity(0.7))
+                                    .font(.system(size: 12))
+
+                                Slider(value: $musicVolume, in: 0...1)
+                                    .frame(width: 60)
+                                    .accentColor(.purple)
+                                    .onChange(of: musicVolume) { _, newValue in
+                                        setMusicVolume(newValue)
+                                    }
+
+                                Image(systemName: "speaker.wave.2.fill")
+                                    .foregroundColor(.white.opacity(0.7))
+                                    .font(.system(size: 12))
+                            }
+                        }
+                    }
+                }
+
+                Spacer()
+
                 // Center title
                 Text("FΣVΣЯ DЯΣΛМ")
-                    .font(.system(size: 18, weight: .medium, design: .monospaced))
+                    .font(.system(size: 16, weight: .medium, design: .monospaced))
                     .foregroundColor(.white)
 
                 Spacer()
@@ -367,9 +421,16 @@ struct ContentView: View {
     // Crossfader mixer (always visible)
     var effectsSelectorView: some View {
         VStack(spacing: 0) {
-            // Always show crossfader mixer
+            // Always show crossfader mixer with integrated song title
             if let metalRenderer = cameraManager.effectsProcessor.metalRenderer {
-                SimpleCrossfaderView(metalRenderer: metalRenderer, showingMixer: .constant(true), storeManager: storeManager, showPremiumMenu: $showPremiumMenu)
+                SimpleCrossfaderView(
+                    metalRenderer: metalRenderer,
+                    showingMixer: .constant(true),
+                    storeManager: storeManager,
+                    showPremiumMenu: $showPremiumMenu,
+                    selectedSong: selectedSong,
+                    isPlayingMusic: isPlayingMusic
+                )
             }
         }
         .padding(.vertical, 15)
@@ -380,21 +441,22 @@ struct ContentView: View {
     var cameraControlsView: some View {
         VStack(spacing: 0) {
             HStack {
-                // Left side - Gallery thumbnail
+                // Left side - Gallery thumbnail (fixed 65pt width)
                 Button(action: {
                     showVideoGallery = true
                 }) {
                     mediaThumbnail
                 }
+                .frame(width: 65) // Fixed width to match thumbnail
 
                 Spacer()
 
-                // Center - Capture button only (centered under MIX)
+                // Center - Capture button (perfectly centered)
                 captureButton
 
                 Spacer()
 
-                // Right side - Mode dropdown arrow (positioned to balance)
+                // Right side - Mode dropdown arrow (fixed 65pt width for balance)
                 Button(action: {
                     showModeSelector = true
                 }) {
@@ -413,6 +475,7 @@ struct ContentView: View {
                 }
                 .disabled(cameraManager.isRecording)
                 .opacity(cameraManager.isRecording ? 0.3 : 1.0)
+                .frame(width: 65) // Fixed width to match thumbnail for perfect balance
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 20)
@@ -465,6 +528,94 @@ struct ContentView: View {
         }
         .sheet(isPresented: $showModeSelector) {
             CaptureModePickerView(selectedMode: $captureMode)
+        }
+        .sheet(isPresented: $showMusicBrowser) {
+            if #available(iOS 15.0, *) {
+                InstagramStyleMusicBrowser(isPresented: $showMusicBrowser) { song in
+                    selectedSong = song
+                    showMusicBrowser = false
+                    print("🎵 Selected: \(song.title) by \(song.artistName)")
+
+                    // Auto-start playback when song is selected
+                    Task {
+                        await playSelectedSong(song)
+                    }
+                }
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+            } else {
+                VStack {
+                    Text("Music browsing requires iOS 15.0 or later")
+                        .padding()
+                    Button("Close") {
+                        showMusicBrowser = false
+                    }
+                    .padding()
+                }
+            }
+        }
+    }
+
+    // MARK: - Music Player Functions
+
+    @available(iOS 15.0, *)
+    private func playSelectedSong(_ song: Song) async {
+        do {
+            let player = ApplicationMusicPlayer.shared
+            let queue = ApplicationMusicPlayer.Queue(for: [song])
+            player.queue = queue
+            try await player.play()
+            isPlayingMusic = true
+            print("🎵 Started playing: \(song.title) by \(song.artistName)")
+        } catch {
+            print("❌ Failed to play song: \(error)")
+            isPlayingMusic = false
+        }
+    }
+
+    @available(iOS 15.0, *)
+    private func toggleMusicPlayback() async {
+        do {
+            let player = ApplicationMusicPlayer.shared
+            if isPlayingMusic {
+                player.pause()
+                isPlayingMusic = false
+                print("⏸️ Paused music")
+            } else {
+                if let song = selectedSong {
+                    await playSelectedSong(song)
+                } else {
+                    try await player.play()
+                    isPlayingMusic = true
+                    print("▶️ Resumed music")
+                }
+            }
+        } catch {
+            print("❌ Failed to toggle playback: \(error)")
+        }
+    }
+
+    @available(iOS 15.0, *)
+    private func setMusicVolume(_ volume: Float) {
+        // Store the volume preference
+        musicVolume = volume
+
+        // Set system volume using MPVolumeView approach
+        DispatchQueue.main.async {
+            MPVolumeView.setVolume(volume)
+        }
+
+        print("🔊 Music volume set to: \(Int(volume * 100))%")
+    }
+}
+
+extension MPVolumeView {
+    static func setVolume(_ volume: Float) {
+        let volumeView = MPVolumeView()
+        let slider = volumeView.subviews.first(where: { $0 is UISlider }) as? UISlider
+
+        DispatchQueue.main.asyncAfter(deadline: DispatchTime.now() + 0.01) {
+            slider?.value = volume
         }
     }
 }
@@ -535,6 +686,8 @@ struct SimpleCrossfaderView: View {
     @Binding var showingMixer: Bool
     @ObservedObject var storeManager: StoreManager
     @Binding var showPremiumMenu: Bool
+    let selectedSong: Song?
+    let isPlayingMusic: Bool
     @State private var crossfaderPosition: Double = 0.0
     @State private var showLeftEffectSelector = false
     @State private var showRightEffectSelector = false
@@ -750,6 +903,37 @@ struct EffectPickerView: View {
                                     .foregroundColor(.white.opacity(0.6))
                                     .padding(.top, 20)
 
+                                // Upgrade button under header
+                                Button(action: {
+                                    dismiss()
+                                    showPremiumMenu = true
+                                }) {
+                                    HStack {
+                                        Image(systemName: "crown.fill")
+                                            .foregroundColor(.yellow)
+                                        Text("UPGRADE TO PREMIUM")
+                                            .font(.system(size: 14, weight: .bold))
+                                            .foregroundColor(.white)
+                                        Spacer()
+                                        Text("MORE EFFECTS")
+                                            .font(.system(size: 10, weight: .bold))
+                                            .foregroundColor(.yellow)
+                                    }
+                                    .padding()
+                                    .background(
+                                        LinearGradient(colors: [.yellow.opacity(0.3), .orange.opacity(0.3)], startPoint: .leading, endPoint: .trailing)
+                                    )
+                                    .cornerRadius(12)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 12)
+                                            .stroke(
+                                                LinearGradient(colors: [.yellow, .orange], startPoint: .leading, endPoint: .trailing),
+                                                lineWidth: 2
+                                            )
+                                    )
+                                }
+                                .buttonStyle(PlainButtonStyle())
+
                                 ForEach(EffectChoice.allCases.filter { $0.requiresPremium }, id: \.self) { effect in
                                     VStack {
                                         HStack {
@@ -788,32 +972,6 @@ struct EffectPickerView: View {
                                         )
                                     }
                                 }
-
-                                Button(action: {
-                                    dismiss()
-                                    showPremiumMenu = true
-                                }) {
-                                    HStack {
-                                        Image(systemName: "crown.fill")
-                                            .foregroundColor(.yellow)
-                                        Text("UPGRADE TO PREMIUM")
-                                            .font(.system(size: 14, weight: .bold))
-                                            .foregroundColor(.white)
-                                    }
-                                    .padding()
-                                    .background(
-                                        LinearGradient(colors: [.yellow.opacity(0.3), .orange.opacity(0.3)], startPoint: .leading, endPoint: .trailing)
-                                    )
-                                    .cornerRadius(12)
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 12)
-                                            .stroke(
-                                                LinearGradient(colors: [.yellow, .orange], startPoint: .leading, endPoint: .trailing),
-                                                lineWidth: 2
-                                            )
-                                    )
-                                }
-                                .buttonStyle(PlainButtonStyle())
                             }
                         }
                     }
