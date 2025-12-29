@@ -77,13 +77,23 @@ struct PremiumMenuView: View {
                                     print("🛒 Button tapped - checking for products...")
                                     print("🛒 Available products: \(storeManager.products.map { $0.id })")
 
+                                    isPurchasing = true
+
                                     // Force reload products if none are loaded
                                     if storeManager.products.isEmpty {
                                         print("🛒 No products loaded, forcing reload...")
                                         storeManager.loadProducts()
 
-                                        // Wait a moment for products to load
-                                        try await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds
+                                        // Wait for products to load with retry logic
+                                        var retryCount = 0
+                                        let maxRetries = 10 // 10 attempts = ~10 seconds total
+
+                                        while storeManager.products.isEmpty && retryCount < maxRetries {
+                                            try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
+                                            retryCount += 1
+                                            print("🛒 Retry \(retryCount)/\(maxRetries) - Products: \(storeManager.products.count)")
+                                        }
+
                                         print("🛒 After reload, products: \(storeManager.products.map { $0.id })")
                                     }
 
@@ -91,11 +101,12 @@ struct PremiumMenuView: View {
                                         print("🛒 ERROR: No subscription product found!")
                                         print("🛒 Products loaded: \(storeManager.products.count)")
                                         print("🛒 Error message: \(storeManager.errorMessage ?? "none")")
+                                        isPurchasing = false
                                         return
                                     }
 
                                     print("🛒 Found product: \(product.id) - \(product.displayName)")
-                                    isPurchasing = true
+
                                     do {
                                         print("🛒 Starting purchase...")
                                         try await storeManager.purchase(product)
@@ -267,11 +278,22 @@ struct PremiumMenuView: View {
                         .padding(.bottom, 10)
 
                         // Restore Purchases
-                        Button("Restore Purchases") {
-                            storeManager.restorePurchases()
+                        VStack(spacing: 10) {
+                            Button("Restore Purchases") {
+                                storeManager.restorePurchases()
+                            }
+                            .font(.system(size: 14))
+                            .foregroundColor(.white.opacity(0.7))
+
+                            // Debug button to clear subscription cache
+                            #if DEBUG
+                            Button("Clear Subscription Cache") {
+                                storeManager.clearSubscriptionCache()
+                            }
+                            .font(.system(size: 12))
+                            .foregroundColor(.red.opacity(0.7))
+                            #endif
                         }
-                        .font(.system(size: 14))
-                        .foregroundColor(.white.opacity(0.7))
                         .padding(.bottom, 30)
                     }
                 }

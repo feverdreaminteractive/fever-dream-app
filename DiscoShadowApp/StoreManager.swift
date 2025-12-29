@@ -163,6 +163,15 @@ class StoreManager: NSObject, ObservableObject {
         }
     }
 
+    func clearSubscriptionCache() {
+        print("🧹 StoreManager: Clearing subscription cache...")
+        purchasedProducts.removeAll()
+        Task {
+            try? await AppStore.sync()
+            await updatePurchasedProducts()
+        }
+    }
+
     private func checkVerified<T>(_ result: VerificationResult<T>) throws -> T {
         switch result {
         case .unverified:
@@ -181,42 +190,59 @@ class StoreManager: NSObject, ObservableObject {
     private func updatePurchasedProducts() async {
         print("🔄 StoreManager: Updating purchased products...")
         var foundTransactions = 0
+        var tempPurchasedProducts: Set<String> = []
 
         for await result in Transaction.currentEntitlements {
             foundTransactions += 1
             do {
                 let transaction = try checkVerified(result)
-                print("🔄 StoreManager: Found transaction - Product: \(transaction.productID), Type: \(transaction.productType), Revoked: \(transaction.revocationDate != nil)")
+                print("🔄 StoreManager: Found transaction - Product: \(transaction.productID), Type: \(transaction.productType)")
+                print("🔄 StoreManager: Transaction details - Revoked: \(transaction.revocationDate != nil), Original ID: \(transaction.originalID)")
 
-                switch transaction.productType {
-                case .autoRenewable:
-                    if transaction.revocationDate == nil {
-                        purchasedProducts.insert(transaction.productID)
-                        print("🔄 StoreManager: Added auto-renewable subscription: \(transaction.productID)")
+                // For subscriptions, also check expiration status
+                if transaction.productType == .autoRenewable {
+                    print("🔄 StoreManager: Subscription transaction ID: \(transaction.id)")
+                    if let expirationDate = transaction.expirationDate {
+                        let isExpired = expirationDate < Date()
+                        print("🔄 StoreManager: Subscription expires: \(expirationDate), Expired: \(isExpired)")
+
+                        // Only add if not revoked AND not expired
+                        if transaction.revocationDate == nil && !isExpired {
+                            tempPurchasedProducts.insert(transaction.productID)
+                            print("🔄 StoreManager: ✅ Added active subscription: \(transaction.productID)")
+                        } else {
+                            print("🔄 StoreManager: ❌ Subscription not active: \(transaction.productID) (revoked: \(transaction.revocationDate != nil), expired: \(isExpired))")
+                        }
                     } else {
-                        purchasedProducts.remove(transaction.productID)
-                        print("🔄 StoreManager: Removed revoked subscription: \(transaction.productID)")
+                        // No expiration date, check revocation only
+                        if transaction.revocationDate == nil {
+                            tempPurchasedProducts.insert(transaction.productID)
+                            print("🔄 StoreManager: ✅ Added subscription (no expiration): \(transaction.productID)")
+                        } else {
+                            print("🔄 StoreManager: ❌ Revoked subscription: \(transaction.productID)")
+                        }
                     }
-
-                case .nonConsumable:
+                } else if transaction.productType == .nonConsumable {
                     if transaction.revocationDate == nil {
-                        purchasedProducts.insert(transaction.productID)
-                        print("🔄 StoreManager: Added non-consumable: \(transaction.productID)")
+                        tempPurchasedProducts.insert(transaction.productID)
+                        print("🔄 StoreManager: ✅ Added non-consumable: \(transaction.productID)")
                     } else {
-                        purchasedProducts.remove(transaction.productID)
-                        print("🔄 StoreManager: Removed revoked non-consumable: \(transaction.productID)")
+                        print("🔄 StoreManager: ❌ Revoked non-consumable: \(transaction.productID)")
                     }
-
-                default:
+                } else {
                     print("🔄 StoreManager: Skipping transaction type: \(transaction.productType)")
-                    break
                 }
             } catch {
                 print("🔄 StoreManager: Failed to verify transaction: \(error)")
             }
         }
 
-        print("🔄 StoreManager: Update complete. Found \(foundTransactions) transactions. Purchased products: \(purchasedProducts)")
+        // Update the published property on main thread
+        await MainActor.run {
+            self.purchasedProducts = tempPurchasedProducts
+        }
+
+        print("🔄 StoreManager: Update complete. Found \(foundTransactions) transactions. Active products: \(purchasedProducts)")
     }
 
     func productForEffect(_ effect: PremiumEffect) -> Product? {

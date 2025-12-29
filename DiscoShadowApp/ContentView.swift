@@ -5,6 +5,8 @@ import MetalKit
 import UIKit
 import MusicKit
 import MediaPlayer
+import PhotosUI
+import CoreImage
 
 enum CaptureMode: String, CaseIterable {
     case photo = "PHOTO"
@@ -29,6 +31,12 @@ struct ContentView: View {
     @StateObject private var simpleMusicManager = SimpleMusicManager()
     @State private var musicVolume: Float = 0.5
     @State private var isPlayingMusic = false
+
+    // Simple photo import
+    @State private var selectedVideoItem: PhotosPickerItem?
+    @State private var importedVideoURL: URL?
+    @State private var showPhotoImport = false
+    @State private var showImportedPhotoInMainView = false
 
     // All available effects (including default as nil)
     private var allEffects: [PremiumEffect?] {
@@ -389,32 +397,90 @@ struct ContentView: View {
 
     // Camera preview with gestures
     func cameraPreviewWithGestures(reader: GeometryProxy) -> some View {
-        CameraPreviewView(cameraManager: cameraManager)
-            .id("cameraPreview") // Give stable identity
-            .gesture(
-                SimultaneousGesture(
-                    // Vertical drag for zoom
-                    DragGesture().onChanged({ (val) in
-                        let percentage: CGFloat = -(val.translation.height / reader.size.height)
-                        let calc = currentZoomFactor + percentage
-                        let zoomFactor: CGFloat = min(max(calc, 1), 5)
-                        currentZoomFactor = zoomFactor
-                        cameraManager.setZoom(zoomFactor)
-                    }),
-                    // Pinch gesture for zoom
-                    MagnificationGesture()
-                        .onChanged({ magnification in
-                            let newZoom = currentZoomFactor * magnification
-                            let clampedZoom = min(max(newZoom, 1), 5)
-                            cameraManager.setZoom(clampedZoom)
-                        })
-                        .onEnded({ magnification in
-                            // Update the stored zoom factor when gesture ends
-                            let newZoom = currentZoomFactor * magnification
-                            currentZoomFactor = min(max(newZoom, 1), 5)
-                        })
+        Group {
+            if showImportedPhotoInMainView, let videoURL = importedVideoURL {
+                // Show imported video with live effects
+                LiveEffectsVideoView(
+                    videoURL: videoURL,
+                    cameraManager: cameraManager,
+                    storeManager: storeManager,
+                    selectedEffect: selectedEffect
                 )
-            )
+                .overlay(
+                    // Controls overlay for imported photo mode
+                    VStack {
+                        HStack {
+                            Text("📸 Imported Photo Mode")
+                                .foregroundColor(.cyan)
+                                .font(.caption)
+                                .padding(8)
+                                .background(Color.black.opacity(0.7))
+                                .cornerRadius(8)
+
+                            Spacer()
+
+                            // Open Photos app button
+                            Button(action: {
+                                openPhotosApp()
+                            }) {
+                                Image(systemName: "photo.on.rectangle.angled")
+                                    .foregroundColor(.white)
+                                    .font(.system(size: 16))
+                                    .padding(8)
+                                    .background(Color.purple.opacity(0.8))
+                                    .cornerRadius(8)
+                            }
+                        }
+
+                        Spacer()
+
+                        // Bottom instruction
+                        HStack {
+                            Text("Tap photo to return to camera")
+                                .foregroundColor(.white.opacity(0.7))
+                                .font(.caption2)
+                                .padding(8)
+                                .background(Color.black.opacity(0.7))
+                                .cornerRadius(8)
+                            Spacer()
+                        }
+                    }
+                    .padding()
+                )
+                .onTapGesture {
+                    // Tap to exit imported photo mode
+                    showImportedPhotoInMainView = false
+                    importedVideoURL = nil
+                }
+            } else {
+                // Regular camera view with zoom gestures
+                CameraPreviewView(cameraManager: cameraManager)
+                    .gesture(
+                        SimultaneousGesture(
+                            // Vertical drag for zoom
+                            DragGesture().onChanged({ (val) in
+                                let percentage: CGFloat = -(val.translation.height / reader.size.height)
+                                let calc = currentZoomFactor + percentage
+                                let zoomFactor: CGFloat = min(max(calc, 1), 5)
+                                currentZoomFactor = zoomFactor
+                                cameraManager.setZoom(zoomFactor)
+                            }),
+                            // Pinch gesture for zoom
+                            MagnificationGesture()
+                                .onChanged({ magnification in
+                                    let newZoom = currentZoomFactor * magnification
+                                    let clampedZoom = min(max(newZoom, 1), 5)
+                                    cameraManager.setZoom(clampedZoom)
+                                })
+                                .onEnded({ magnification in
+                                    // Update the stored zoom factor when gesture ends
+                                    let newZoom = currentZoomFactor * magnification
+                                    currentZoomFactor = min(max(newZoom, 1), 5)
+                                })
+                        )
+                    )
+            }
+        }
     }
 
 
@@ -441,13 +507,30 @@ struct ContentView: View {
     var cameraControlsView: some View {
         VStack(spacing: 0) {
             HStack {
-                // Left side - Gallery thumbnail (fixed 65pt width)
-                Button(action: {
-                    showVideoGallery = true
-                }) {
-                    mediaThumbnail
+                // Left side - Gallery and Import buttons
+                HStack(spacing: 8) {
+                    // Gallery thumbnail
+                    Button(action: {
+                        showVideoGallery = true
+                    }) {
+                        mediaThumbnail
+                    }
+                    .frame(width: 65) // Fixed width to match thumbnail
+
+                    // Import media button
+                    Button(action: {
+                        showPhotoImport = true
+                    }) {
+                        Image(systemName: "photo.badge.plus")
+                            .font(.system(size: 20, weight: .medium))
+                            .foregroundColor(.white)
+                            .frame(width: 40, height: 40)
+                            .background(
+                                Circle()
+                                    .fill(Color.purple.opacity(0.8))
+                            )
+                    }
                 }
-                .frame(width: 65) // Fixed width to match thumbnail
 
                 Spacer()
 
@@ -529,6 +612,21 @@ struct ContentView: View {
         .sheet(isPresented: $showModeSelector) {
             CaptureModePickerView(selectedMode: $captureMode)
         }
+        .sheet(isPresented: $showPhotoImport) {
+            if #available(iOS 16.0, *) {
+                SimpleVideoImportView(
+                    importedVideoURL: $importedVideoURL,
+                    isPresented: $showPhotoImport,
+                    showImportedPhotoInMainView: $showImportedPhotoInMainView,
+                    selectedEffect: selectedEffect,
+                    cameraManager: cameraManager
+                )
+            } else {
+                Text("Video import requires iOS 16+")
+                    .foregroundColor(.white)
+                    .padding()
+            }
+        }
         .sheet(isPresented: $showMusicBrowser) {
             if #available(iOS 15.0, *) {
                 InstagramStyleMusicBrowser(isPresented: $showMusicBrowser) { song in
@@ -606,6 +704,21 @@ struct ContentView: View {
         }
 
         print("🔊 Music volume set to: \(Int(volume * 100))%")
+    }
+
+    private func openPhotosApp() {
+        guard let photosURL = URL(string: "photos-redirect://") else { return }
+
+        if UIApplication.shared.canOpenURL(photosURL) {
+            UIApplication.shared.open(photosURL, options: [:], completionHandler: nil)
+            print("📱 Opening Photos app")
+        } else {
+            // Fallback to opening Photos app via settings if the redirect doesn't work
+            if let settingsURL = URL(string: UIApplication.openSettingsURLString) {
+                UIApplication.shared.open(settingsURL, options: [:], completionHandler: nil)
+                print("📱 Opening Settings as fallback")
+            }
+        }
     }
 }
 
@@ -1367,6 +1480,313 @@ struct EffectOptionView: View {
             )
         }
         .buttonStyle(PlainButtonStyle())
+    }
+}
+
+// MARK: - Simple Video Import View
+
+@available(iOS 16.0, *)
+struct SimpleVideoImportView: View {
+    @Binding var importedVideoURL: URL?
+    @Binding var isPresented: Bool
+    @Binding var showImportedPhotoInMainView: Bool
+    let selectedEffect: PremiumEffect?
+
+    // Access to the real effects system
+    @State private var cameraManager: CameraManager
+    @StateObject private var storeManager = StoreManager()
+
+    @State private var selectedVideoItem: PhotosPickerItem?
+    @State private var processedVideoURL: URL?
+    @State private var isProcessing = false
+    @State private var showSaveConfirmation = false
+    @State private var showCrossfader = false
+
+    init(importedVideoURL: Binding<URL?>, isPresented: Binding<Bool>, showImportedPhotoInMainView: Binding<Bool>, selectedEffect: PremiumEffect?, cameraManager: CameraManager) {
+        self._importedVideoURL = importedVideoURL
+        self._isPresented = isPresented
+        self._showImportedPhotoInMainView = showImportedPhotoInMainView
+        self.selectedEffect = selectedEffect
+        self._cameraManager = State(initialValue: cameraManager)
+    }
+
+    var body: some View {
+        NavigationView {
+            ZStack {
+                Color.black.ignoresSafeArea()
+
+                VStack(spacing: 20) {
+                    Text("Import Photo")
+                        .font(.largeTitle)
+                        .foregroundColor(.white)
+
+                    // Show imported photo if available
+                    if let videoURL = importedVideoURL {
+                        VStack(spacing: 15) {
+                            // Video preview with live effects
+                            LiveEffectsVideoView(
+                                videoURL: videoURL,
+                                cameraManager: cameraManager,
+                                storeManager: storeManager,
+                                selectedEffect: selectedEffect
+                            )
+                            .frame(maxHeight: 400)
+                            .cornerRadius(12)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(Color.cyan, lineWidth: 3)
+                            )
+
+                            // Effect info and preview
+                            VStack(spacing: 10) {
+                                HStack {
+                                    Image(systemName: "wand.and.stars")
+                                        .foregroundColor(.cyan)
+                                    Text("Effect: \(selectedEffect?.name ?? "FEVER DREAM")")
+                                        .foregroundColor(.white)
+                                }
+                                .padding()
+                                .background(Color.white.opacity(0.1))
+                                .cornerRadius(8)
+
+                                // Video effects are applied live via crossfader
+                                Text("Use crossfader to blend: Fever Dream ↔ Strobe")
+                                    .foregroundColor(.white.opacity(0.7))
+                                    .font(.caption)
+                                    .multilineTextAlignment(.center)
+                            }
+
+                            // Action buttons for video
+                            VStack(spacing: 10) {
+                                Button("Close Video") {
+                                    isPresented = false
+                                }
+                                .padding()
+                                .background(Color.green)
+                                .foregroundColor(.white)
+                                .cornerRadius(12)
+                                .font(.headline)
+                            }
+
+                            // Live effects info
+                            if showCrossfader {
+                                VStack(spacing: 8) {
+                                    HStack {
+                                        Image(systemName: "waveform.path.ecg")
+                                            .foregroundColor(.cyan)
+                                        Text("Live Effects Active")
+                                            .foregroundColor(.cyan)
+                                            .font(.caption)
+                                            .fontWeight(.bold)
+                                    }
+
+                                    Text("Change effects in main app, use crossfader controls, or adjust settings - this photo updates in real-time!")
+                                        .foregroundColor(.white.opacity(0.7))
+                                        .font(.caption2)
+                                        .multilineTextAlignment(.center)
+
+                                    Text("Current effect: \(selectedEffect?.name ?? "FEVER DREAM")")
+                                        .foregroundColor(.white.opacity(0.9))
+                                        .font(.caption2)
+                                        .fontWeight(.medium)
+                                }
+                                .padding()
+                                .background(Color.cyan.opacity(0.1))
+                                .cornerRadius(12)
+                            }
+                        }
+                    } else {
+                        // Photo picker
+                        VStack(spacing: 20) {
+                            Image(systemName: "photo.circle")
+                                .font(.system(size: 100))
+                                .foregroundColor(.purple.opacity(0.7))
+
+                            Text("Select a photo to apply effects")
+                                .foregroundColor(.white.opacity(0.7))
+                                .multilineTextAlignment(.center)
+
+                            PhotosPicker(
+                                selection: $selectedVideoItem,
+                                matching: .videos
+                            ) {
+                                HStack {
+                                    Image(systemName: "video")
+                                    Text("Choose Video")
+                                }
+                                .padding()
+                                .background(Color.purple)
+                                .foregroundColor(.white)
+                                .cornerRadius(12)
+                            }
+                        }
+                    }
+
+                    Spacer()
+                }
+                .padding()
+            }
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") {
+                        isPresented = false
+                    }
+                    .foregroundColor(.white)
+                }
+
+                if showSaveConfirmation {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Text("Saved!")
+                            .foregroundColor(.green)
+                    }
+                }
+            }
+        }
+        .onChange(of: selectedVideoItem) { _, newItem in
+            Task {
+                print("📹 SimpleVideoImportView: Video item selected")
+                if let newItem = newItem,
+                   let data = try? await newItem.loadTransferable(type: Data.self) {
+                    print("📹 SimpleVideoImportView: Video data loaded, size: \(data.count) bytes")
+                    // Save video to Documents directory
+                    let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+                    let timestamp = Date().timeIntervalSince1970
+                    let formattedTimestamp = String(format: "%.3f", timestamp)
+                    let videoURL = documentsURL.appendingPathComponent("ImportedVideo_\(formattedTimestamp).mp4")
+
+                    do {
+                        try data.write(to: videoURL)
+                        print("📹 SimpleVideoImportView: Video saved to: \(videoURL.path)")
+                        DispatchQueue.main.async {
+                            self.importedVideoURL = videoURL
+                            print("📹 SimpleVideoImportView: importedVideoURL updated to: \(videoURL.lastPathComponent)")
+                        }
+                    } catch {
+                        print("📹 Failed to save imported video: \(error)")
+                    }
+                } else {
+                    print("📹 SimpleVideoImportView: Failed to load video data")
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Live Effects Video View
+struct LiveEffectsVideoView: View {
+    let videoURL: URL
+    let cameraManager: CameraManager
+    let storeManager: StoreManager?
+    let selectedEffect: PremiumEffect?
+
+    @State private var videoPlayer: AVPlayer?
+    @State private var isPlaying = false
+
+    var body: some View {
+        ZStack {
+            if let player = videoPlayer {
+                EffectsVideoPlayerView(player: player, cameraManager: cameraManager)
+                    .onAppear {
+                        player.play()
+                        isPlaying = true
+                        setupEffects()
+                    }
+                    .onDisappear {
+                        player.pause()
+                        isPlaying = false
+                    }
+            } else {
+                Color.black
+                    .onAppear {
+                        setupVideoPlayer()
+                    }
+            }
+
+            // Play/Pause overlay
+            VStack {
+                Spacer()
+                HStack {
+                    Button(action: {
+                        if isPlaying {
+                            videoPlayer?.pause()
+                            isPlaying = false
+                        } else {
+                            videoPlayer?.play()
+                            isPlaying = true
+                        }
+                    }) {
+                        Image(systemName: isPlaying ? "pause.fill" : "play.fill")
+                            .font(.system(size: 20))
+                            .foregroundColor(.white)
+                            .padding()
+                            .background(Color.black.opacity(0.6))
+                            .clipShape(Circle())
+                    }
+                    Spacer()
+                }
+                .padding()
+            }
+        }
+        .clipped()
+        .background(Color.black)
+    }
+
+    private func setupVideoPlayer() {
+        print("📹 LiveEffectsVideoView: Setting up video player for URL: \(videoURL)")
+        let player = AVPlayer(url: videoURL)
+        player.actionAtItemEnd = .none
+
+        // Loop the video
+        NotificationCenter.default.addObserver(
+            forName: .AVPlayerItemDidPlayToEndTime,
+            object: player.currentItem,
+            queue: .main
+        ) { _ in
+            player.seek(to: .zero)
+            player.play()
+        }
+
+        self.videoPlayer = player
+        print("📹 LiveEffectsVideoView: Video player set up successfully")
+    }
+
+    private func setupEffects() {
+        guard let metalRenderer = cameraManager.effectsProcessor.metalRenderer else { return }
+
+        // Set default crossfading effects for video
+        metalRenderer.leftEffect = nil // Fever dream
+        metalRenderer.rightEffect = .strobe
+
+        print("🎬 LiveEffectsVideoView: Set up crossfading effects - fever dream ↔ strobe")
+    }
+}
+
+struct EffectsVideoPlayerView: UIViewRepresentable {
+    let player: AVPlayer
+    let cameraManager: CameraManager
+
+    func makeUIView(context: Context) -> UIView {
+        let view = UIView()
+        view.backgroundColor = .black
+
+        let playerLayer = AVPlayerLayer(player: player)
+        playerLayer.videoGravity = .resizeAspect
+        view.layer.addSublayer(playerLayer)
+
+        // Set up video output for effects processing
+        let videoOutput = AVPlayerItemVideoOutput()
+        if let currentItem = player.currentItem {
+            currentItem.add(videoOutput)
+        }
+
+        return view
+    }
+
+    func updateUIView(_ uiView: UIView, context: Context) {
+        if let playerLayer = uiView.layer.sublayers?.first as? AVPlayerLayer {
+            playerLayer.frame = uiView.bounds
+        }
     }
 }
 
