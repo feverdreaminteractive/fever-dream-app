@@ -14,6 +14,13 @@ class StoreManager: NSObject, ObservableObject {
         // Note: Individual effects no longer sold separately - subscription only
     ])
 
+    // Backup product identifiers in case of App Store Connect issues
+    private let backupProductIdentifiers = Set([
+        "feverdream.premium.monthly",
+        "com.discoshadow.app.premium.monthly", // Alternative format
+        "com.feverdreamapp.premium.monthly"    // Another possible format
+    ])
+
     var hasSubscription: Bool {
         return purchasedProducts.contains("feverdream.premium.monthly")
     }
@@ -52,12 +59,29 @@ class StoreManager: NSObject, ObservableObject {
         print("🏪 StoreManager: Starting to load products...")
         print("🏪 StoreManager: Product identifiers: \(productIdentifiers)")
 
+        // Enhanced production diagnostics
+        #if DEBUG
+        print("🏪 StoreManager: DEBUG: Using StoreKit Configuration file")
+        #else
+        print("🏪 StoreManager: PRODUCTION: Loading from App Store Connect")
+        print("🏪 StoreManager: Bundle ID: \(Bundle.main.bundleIdentifier ?? "unknown")")
+        print("🏪 StoreManager: App Version: \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "unknown")")
+        print("🏪 StoreManager: Build: \(Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "unknown")")
+        #endif
+
         // Check AppStore availability
         print("🏪 StoreManager: Checking AppStore availability...")
         Task {
             do {
                 let canMakePayments = await AppStore.canMakePayments
                 print("🏪 StoreManager: Can make payments: \(canMakePayments)")
+                if !canMakePayments {
+                    await MainActor.run {
+                        self.errorMessage = "In-app purchases are not available on this device."
+                        self.isLoading = false
+                    }
+                    return
+                }
             } catch {
                 print("🏪 StoreManager: Error checking payment capability: \(error)")
             }
@@ -73,10 +97,53 @@ class StoreManager: NSObject, ObservableObject {
                 let storeProducts = try await Product.products(for: productIdentifiers)
                 print("🏪 StoreManager: Product.products returned")
                 print("🏪 StoreManager: Loaded \(storeProducts.count) products")
+
+                // Enhanced production debugging
+                if storeProducts.isEmpty {
+                    print("🏪 StoreManager: ⚠️ WARNING: No products loaded with primary identifiers!")
+
+                    #if DEBUG
+                    print("🏪 StoreManager: Check StoreKit Configuration file is selected in scheme")
+                    self.errorMessage = "No subscription products available. Check StoreKit configuration."
+                    self.isLoading = false
+                    return
+                    #else
+                    print("🏪 StoreManager: PRODUCTION: Trying backup product identifiers...")
+
+                    // Try backup product identifiers
+                    do {
+                        let backupProducts = try await Product.products(for: backupProductIdentifiers)
+                        print("🏪 StoreManager: Backup products loaded: \(backupProducts.count)")
+
+                        if !backupProducts.isEmpty {
+                            self.products = backupProducts.sorted { $0.displayPrice < $1.displayPrice }
+                            self.isLoading = false
+                            print("🏪 StoreManager: ✅ Using backup products")
+                            return
+                        }
+                    } catch {
+                        print("🏪 StoreManager: Backup products also failed: \(error)")
+                    }
+
+                    print("🏪 StoreManager: PRODUCTION ISSUE: This could mean:")
+                    print("🏪 StoreManager: 1. Products not created in App Store Connect")
+                    print("🏪 StoreManager: 2. Products not approved/reviewed")
+                    print("🏪 StoreManager: 3. Bundle ID mismatch")
+                    print("🏪 StoreManager: 4. App not published to App Store")
+                    print("🏪 StoreManager: 5. Subscription group issues")
+
+                    self.errorMessage = "Subscription not available. Please try again later or contact support."
+                    self.isLoading = false
+                    return
+                    #endif
+                }
+
                 for product in storeProducts {
                     print("🏪 StoreManager: Product - ID: \(product.id), Name: \(product.displayName), Price: \(product.displayPrice)")
+                    print("🏪 StoreManager: Product type: \(product.type)")
                     if let subscription = product.subscription {
                         print("🏪 StoreManager: Subscription details - Period: \(subscription.subscriptionPeriod)")
+                        print("🏪 StoreManager: Subscription group: \(subscription.subscriptionGroupID)")
                         if let introOffer = subscription.introductoryOffer {
                             print("🏪 StoreManager: Intro offer - Type: \(introOffer.type), Period: \(introOffer.period), Price: \(introOffer.displayPrice)")
                         } else {
@@ -90,6 +157,21 @@ class StoreManager: NSObject, ObservableObject {
             } catch {
                 print("🏪 StoreManager: ERROR loading products: \(error)")
                 print("🏪 StoreManager: Error type: \(type(of: error))")
+                print("🏪 StoreManager: Error localized: \(error.localizedDescription)")
+
+                // Check for specific error types that are common in production
+                if let storeKitError = error as? StoreKitError {
+                    print("🏪 StoreManager: StoreKitError specific details: \(storeKitError)")
+                }
+
+                #if !DEBUG
+                print("🏪 StoreManager: PRODUCTION ERROR HELP:")
+                print("🏪 StoreManager: - Check App Store Connect for product status")
+                print("🏪 StoreManager: - Verify subscription group is active")
+                print("🏪 StoreManager: - Ensure app is published or in TestFlight")
+                print("🏪 StoreManager: - Check bundle ID matches exactly")
+                #endif
+
                 self.errorMessage = "Failed to load products: \(error.localizedDescription)"
                 self.isLoading = false
             }
@@ -170,6 +252,24 @@ class StoreManager: NSObject, ObservableObject {
             try? await AppStore.sync()
             await updatePurchasedProducts()
         }
+    }
+
+    // Diagnose production subscription issues
+    func diagnoseProductionIssues() {
+        print("🔍 PRODUCTION DIAGNOSTICS:")
+        print("🔍 Bundle ID: \(Bundle.main.bundleIdentifier ?? "UNKNOWN")")
+        print("🔍 App Version: \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "UNKNOWN")")
+        print("🔍 Build: \(Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "UNKNOWN")")
+        print("🔍 Expected product ID: feverdream.premium.monthly")
+        print("🔍 Products loaded: \(products.count)")
+        print("🔍 Current purchases: \(purchasedProducts)")
+        print("🔍 Has subscription: \(hasSubscription)")
+
+        #if DEBUG
+        print("🔍 Running in DEBUG mode")
+        #else
+        print("🔍 Running in PRODUCTION mode")
+        #endif
     }
 
     private func checkVerified<T>(_ result: VerificationResult<T>) throws -> T {

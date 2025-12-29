@@ -285,13 +285,27 @@ struct PremiumMenuView: View {
                             .font(.system(size: 14))
                             .foregroundColor(.white.opacity(0.7))
 
-                            // Debug button to clear subscription cache
+                            // Debug buttons
                             #if DEBUG
                             Button("Clear Subscription Cache") {
                                 storeManager.clearSubscriptionCache()
                             }
                             .font(.system(size: 12))
                             .foregroundColor(.red.opacity(0.7))
+
+                            Button("Production Diagnostics") {
+                                storeManager.diagnoseProductionIssues()
+                            }
+                            .font(.system(size: 12))
+                            .foregroundColor(.blue.opacity(0.7))
+                            #else
+                            // Production diagnostics button for troubleshooting
+                            Button("Troubleshoot Subscription") {
+                                storeManager.diagnoseProductionIssues()
+                                storeManager.loadProducts() // Retry loading
+                            }
+                            .font(.system(size: 12))
+                            .foregroundColor(.orange.opacity(0.7))
                             #endif
                         }
                         .padding(.bottom, 30)
