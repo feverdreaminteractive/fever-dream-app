@@ -1,2 +1,0 @@
-Target dependency graph (1 target)
-Target 'DiscoShadowApp' in project 'DiscoShadowApp' (no dependencies)
